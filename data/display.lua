@@ -5,31 +5,28 @@ Display = {}
 
 local resolution = {x = 0, y = 0}
 
-Display.GRID = {
-	COLS = 40,
-	ROWS = 16
-}
+Display.GRID = {COLSX = 40, ROWSY = 16}
 
-Display.GRID.MAX_COL = Display.GRID.COLS - 1
-Display.GRID.MAX_ROW = Display.GRID.ROWS - 1
+Display.GRID.MAX_COLX = Display.GRID.COLSX - 1
+Display.GRID.MAX_ROWY = Display.GRID.ROWSY - 1
 
 function Display.setResolution(res)
 	resolution.x = res.x
 	resolution.y = res.y
 end
 
-function Display.colToPixelX(col)
-	if col < 0 or col > Display.GRID.MAX_COL then
-		error("col must be in range [0, " .. Display.GRID.MAX_COL .. "]" .. "value is: " .. col, 2)
+function Display.colToPixelX(colX)
+	if colX < 0 or colX > Display.GRID.MAX_COLX then
+		error("colX must be in range [0, " .. Display.GRID.MAX_COLX .. "]" .. "value is: " .. colX, 2)
 	end
-	return (resolution.x * col) / Display.GRID.COLS + 2
+	return (resolution.x * colX) / Display.GRID.COLSX + 2
 end
 
-function Display.rowToPixelY(row)
-	if row < 0 or row > Display.GRID.MAX_ROW then
-		error("row must be in range [0, " .. Display.GRID.MAX_ROW .. "]" .. "value is: " .. row, 2)
+function Display.rowToPixelY(rowY)
+	if rowY < 0 or rowY > Display.GRID.MAX_ROWY then
+		error("rowY must be in range [0, " .. Display.GRID.MAX_ROWY .. "]" .. "value is: " .. rowY, 2)
 	end
-	return (resolution.y * row) / Display.GRID.ROWS + 2
+	return (resolution.y * rowY) / Display.GRID.ROWSY + 2
 end
 
 function Display.mainRender(settings, pokemon, gen, version, status, mode, substatus, lastpid, more, table)
@@ -47,10 +44,10 @@ function Display.mainRender(settings, pokemon, gen, version, status, mode, subst
 	gui.text(Display.colToPixelX(g and 0 or 11), Display.rowToPixelY(g and 13 or 0), "HP:" .. pokemon["hp"]["current"] .. "/" .. pokemon["hp"]["max"], tmpcolor)
 
 	-- Frame counter
-	Display.frameCounter(Display.colToPixelX(0), Display.rowToPixelY(Display.GRID.MAX_ROW), version)
+	Display.frameCounter(Display.colToPixelX(0), Display.rowToPixelY(Display.GRID.MAX_ROWY), version)
 	
 	-- Shiny status
-	gui.text(Display.colToPixelX(30), Display.rowToPixelY(Display.GRID.MAX_ROW), pokemon["shiny"] == 1 and "Shiny" or "Not shiny", pokemon["shiny"] == 1 and "green" or "red")
+	gui.text(Display.colToPixelX(30), Display.rowToPixelY(Display.GRID.MAX_ROWY), pokemon["shiny"] == 1 and "Shiny" or "Not shiny", pokemon["shiny"] == 1 and "green" or "red")
 	
 	-- "More" menu
 	if more == 1 then
@@ -91,52 +88,52 @@ function Display.statsDisplay(settings, pokemon, gen, mode, substatus, lastpid, 
 	
 	-- Display stats
 	for i = 1, statCount do
-		local col = Display.GRID.COLS - (i * 3)
+		local colX = Display.GRID.COLSX - (i * 3)
 		
 		-- Label at top
-		gui.text(Display.colToPixelX(col), Display.rowToPixelY(0), labels[statCount + 1 - i], table["colors"][statCount + 1 - i])
+		gui.text(Display.colToPixelX(colX), Display.rowToPixelY(0), labels[statCount + 1 - i], table["colors"][statCount + 1 - i])
 		
 		-- IV value one row below
 		local iv = ivData[statCount + 1 - i]
 		local ivText = iv == 31 and (iv .. "*") or iv
-		gui.text(Display.colToPixelX(col), Display.rowToPixelY(1), ivText, table["colors"][statCount + 1 - i])
+		gui.text(Display.colToPixelX(colX), Display.rowToPixelY(1), ivText, table["colors"][statCount + 1 - i])
 		
 		-- Nature indicator (Gen 3+, not for mode 4)
 		if gen >= 3 and mode ~= 4 then
-			Display.natureIndicator(col, 1, i, pokemon, table)
+			Display.natureIndicator(colX, 1, i, pokemon, table)
 		end
 	end
 	
 	-- Status indicator
-	Display.statusIndicator((gen <= 2 and 15 or 0), (gen <= 2 and Display.GRID.MAX_ROW or 0), substatus[1], mode, table, color)
+	Display.statusIndicator((gen <= 2 and 15 or 0), (gen <= 2 and Display.GRID.MAX_ROWY or 0), substatus[1], mode, table, color)
 	
 	-- PID (Gen 3+)
 	if gen >= 3 then
-		gui.text(Display.colToPixelX(15), Display.rowToPixelY(Display.GRID.MAX_ROW), "PID: " .. bit.tohex(lastpid))
+		gui.text(Display.colToPixelX(15), Display.rowToPixelY(Display.GRID.MAX_ROWY), "PID: " .. bit.tohex(lastpid))
 	end
 end
 
 -- Display nature stat modifiers (green for boost, red for reduction, grey for neutral)
-function Display.natureIndicator(col, row, statIndex, pokemon, table)
+function Display.natureIndicator(colX, rowY, statIndex, pokemon, table)
 	local inc, dec = pokemon["nature"]["inc"], pokemon["nature"]["dec"]
 	
 	if inc ~= dec then
 		if statIndex == table["statsorder"][inc + 2] then
-			gui.text(Display.colToPixelX(col)+1, Display.rowToPixelY(row)+2, "__", "green")
+			gui.text(Display.colToPixelX(colX)+1, Display.rowToPixelY(rowY)+2, "__", "green")
 		elseif statIndex == table["statsorder"][dec + 2] then
-			gui.text(Display.colToPixelX(col)+1, Display.rowToPixelY(row)+2, "__", "red")
+			gui.text(Display.colToPixelX(colX)+1, Display.rowToPixelY(rowY)+2, "__", "red")
 		end
 	else
 		if statIndex == table["statsorder"][inc + 1] then
-			gui.text(Display.colToPixelX(col)+1, Display.rowToPixelY(row)+2, "__", "grey")
+			gui.text(Display.colToPixelX(colX)+1, Display.rowToPixelY(rowY)+2, "__", "grey")
 		end
 	end
 end
 
 -- Display status indicator (P1, P2, etc.)
-function Display.statusIndicator(col, row, substatus, mode, table, color)
+function Display.statusIndicator(colX, rowY, substatus, mode, table, color)
 	local statusText = (color == "green" and "P" or "E") .. substatus .. " (" .. table["modes"][mode] .. ")"
-	gui.text(Display.colToPixelX(col), Display.rowToPixelY(row), statusText, color)
+	gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY), statusText, color)
 end
 
 -- Display frame counter
@@ -166,17 +163,16 @@ function Display.moreMenu(settings, pokemon, gen, version, status, table, heldit
 end
 
 -- More menu details for Gen 3-5
-function Display.moreMenuGen3Plus(col, row, pokemon, gen, table, helditem)
+function Display.moreMenuGen3Plus(colX, rowY, pokemon, gen, table, helditem)
 	local naturen = pokemon["nature"]["nature"] > 16 and pokemon["nature"]["nature"] - 16 or pokemon["nature"]["nature"]
 	local natureColor = table["typecolor"][naturen]
 	
-	gui.text(Display.colToPixelX(col), Display.rowToPixelY(row), "Nature")
-	gui.text(Display.colToPixelX(col + 8), Display.rowToPixelY(row), table["nature"][pokemon["nature"]["nature"] + 1], natureColor)
+	gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY), "Nature")
+	gui.text(Display.colToPixelX(colX + 8), Display.rowToPixelY(rowY), table["nature"][pokemon["nature"]["nature"] + 1], natureColor)
 	
 	local ability = gen == 3 and table["gen3ability"][pokemon["species"]][pokemon["ability"] + 1] or pokemon["ability"]
 	local pokerus = pokemon["pokerus"] == 0 and "no" or "yes"
 	
-	local rightCol = col + 20
 	local details = {
 		{"OT ID : " .. pokemon["OTTID"]},
 		{"OT SID : " .. pokemon["OTSID"]},
@@ -187,34 +183,34 @@ function Display.moreMenuGen3Plus(col, row, pokemon, gen, table, helditem)
 	}
 	
 	for i, detail in ipairs(details) do
-		gui.text(Display.colToPixelX(rightCol), Display.rowToPixelY(row + i - 1), detail[1])
+		gui.text(Display.colToPixelX(colX + 20), Display.rowToPixelY(rowY + i - 1), detail[1])
 	end
 	gui.text(Display.colToPixelX(2), Display.rowToPixelY(12), "Ability : " .. table["ability"][ability])
 end
 
 -- More menu details for Gen 1-2
-function Display.moreMenuGen12(col, row, pokemon, gen, version, status, table, helditem)
-	gui.text(Display.colToPixelX(col), Display.rowToPixelY(row), "TID: " .. pokemon["TID"] .. " / Item: " .. helditem)
+function Display.moreMenuGen12(colX, rowY, pokemon, gen, version, status, table, helditem)
+	gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY), "TID: " .. pokemon["TID"] .. " / Item: " .. helditem)
 	
 	if gen == 2 or (version == "POKEMON YELL" and status == 1 and pokemon["species"] == 25) then
-		gui.text(Display.colToPixelX(col), Display.rowToPixelY(row + 2), "Friendship : " .. pokemon["friendship"])
+		gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY + 2), "Friendship : " .. pokemon["friendship"])
 	end
 end
 
 -- Display Hidden Power
-function Display.hiddenPower(col, row, pokemon, table)
-	gui.text(Display.colToPixelX(col), Display.rowToPixelY(row), "H.Power")
-	gui.text(Display.colToPixelX(col + 8), Display.rowToPixelY(row), 
+function Display.hiddenPower(colX, rowY, pokemon, table)
+	gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY), "H.Power")
+	gui.text(Display.colToPixelX(colX + 8), Display.rowToPixelY(rowY), 
 			 table["type"][pokemon["hiddenpower"]["type"] + 1] .. " " .. pokemon["hiddenpower"]["base"],
 			 table["typecolor"][pokemon["hiddenpower"]["type"] + 1])
 end
 
 -- Display moves list
-function Display.movesList(col, row, pokemon, table)
-	gui.text(Display.colToPixelX(col), Display.rowToPixelY(row), "Moves:")
+function Display.movesList(colX, rowY, pokemon, table)
+	gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY), "Moves:")
 	for i = 1, 4 do
 		if table["move"][pokemon["move"][i]] ~= nil then
-			gui.text(Display.colToPixelX(col), Display.rowToPixelY(row + i), 
+			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY + i), 
 					 table["move"][pokemon["move"][i]] .. " - " .. pokemon["pp"][i] .. "PP")
 		end
 	end
