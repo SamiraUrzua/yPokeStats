@@ -25,7 +25,13 @@ dofile "data/gamesdata.lua" -- Games titles and memory adresses
 dofile "data/pokemondata.lua" -- Pokemon names, abilities, moves
 
 -- Consoles resolutions by gen (to display things right on every game)
-table["consoles"]={{160,144},{240,160},{256,192}}
+table["resolutions"] = {gameBoyColor = {x=160, y=144}, gameBoyAdvance = {x=240, y=160}, nintendoDS = {x=256, y=192}}
+
+key = {	SWITCH_MODE		= "J", -- Switch mode (EV,IV,Stats)
+		SWITCH_STATUS	= "K", -- Switch status (Enemy / player)
+		SUB_STATUS		= "L", -- Sub Status + (Pokemon Slot)
+		TOGGLE_MORE		= "M", -- Show more data
+		TOGGLE_HELP		= "H"} -- Toggle help
 
 -- Things to display (only has a cosmetic effect but might produce overlapping text if changed)
 table["labels"]={"HP","AT","DF","SA","SD","SP"} -- Stats labels (Keep in the same order)

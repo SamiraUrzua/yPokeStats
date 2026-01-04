@@ -1,11 +1,11 @@
 -- Functions and variables definition
 function bts(bytes,l) -- Bytes array to string
-    local name = ""
-    for i=1,l do
+	local name = ""
+	for i=1,l do
 		nchar = bytes[i]==0 and "" or string.char(bytes[i])
-        name = name..nchar
-    end
-    return name
+		name = name..nchar
+	end
+	return name
 end
 
 function numTruncate(x,n) -- Truncate to n decimals
@@ -15,21 +15,21 @@ function numTruncate(x,n) -- Truncate to n decimals
 end
 
 function hasValue (tab, val)
-    for index, value in ipairs(tab) do
-        if value == val then
-            return true
-        end
-    end
+	for index, value in ipairs(tab) do
+		if value == val then
+			return true
+		end
+	end
 
-    return false
+	return false
 end
 
 function getGameInfo() -- Reads game memory to determine which game is running
-    local version, lan, gen, sel
+	local version, lan, gen, resolution
 	if string.find(bts(memory.readbyterange(0x0134, 12),12), "POKEMON") or string.find(bts(memory.readbyterange(0x0134, 12),12), "PM") then
 		version = bts(memory.readbyterange(0x0134, 12),12)
-        lan = memory.readword(0x014E)
-        regions = {"J","E","F"}
+		lan = memory.readword(0x014E)
+		regions = {"J","E","F"}
 		
 		for i=1,2 do -- Finds the proper region and gen
 			for j=1,3 do
@@ -39,73 +39,89 @@ function getGameInfo() -- Reads game memory to determine which game is running
 				end
 			end
 		end
-        
-        sel = table["consoles"][1]
-    elseif string.find(bts(memory.readbyterange(0x080000A0, 12),12), "POKEMON") or string.find(bts(memory.readbyterange(0x080000A0, 12),12), "PKMN") then
-        version = bts(memory.readbyterange(0x080000A0, 12),12)
-        lan = string.char(memory.readbyte(0x080000AF))
-        gen = 3
-        sel = table["consoles"][2]
-    elseif string.find(bts(memory.readbyterange(0x023FF000,12),12), "POKEMON") then
-        version = bts(memory.readbyterange(0x023FF000,12),12)
-        lan = string.char(memory.readbyte(0x023FFE0F))
-        gamecode = bts(memory.readbyterange(0x023FF000+0xA8C,4),4) -- Or E0C ?
-        gen = 4
-        sel = table["consoles"][3]
-    elseif string.find(bts(memory.readbyterange(0x023FFE00,12),12), "POKEMON") then
-        version = bts(memory.readbyterange(0x023FFE00,12),12)
-        lan = string.char(memory.readbyte(0x023FFE0F))
-        gamecode = bts(memory.readbyterange(0x023FFE00+0xA8C,4),4) -- Or E0C ?
-        gen = 5
-        sel = table["consoles"][3]
-    else	
-        version = 0
-        lan = 0
-        gen = 0
-        sel = table["consoles"][1]
-    end
-	-- I think all PAL regions use the same adresses. Here's the dirty hack to make them all work
-	-- Note : "O" seems to be the letter used in DSi enhanced games
-	if lan == "D" or lan == "H" or lan == "I" or lan == "O" or lan =="S" or lan == "X" or lan == "Y" or lan == "Z" then
-		lan = "F"
+		
+		resolution = table["resolutions"].gameBoyColor
+	elseif string.find(bts(memory.readbyterange(0x080000A0, 12),12), "POKEMON") or string.find(bts(memory.readbyterange(0x080000A0, 12),12), "PKMN") then
+		version = bts(memory.readbyterange(0x080000A0, 12),12)
+		lan = string.char(memory.readbyte(0x080000AF))
+		gen = 3
+		resolution = table["resolutions"].gameBoyAdvance
+	elseif string.find(bts(memory.readbyterange(0x023FF000,12),12), "POKEMON") then
+		version = bts(memory.readbyterange(0x023FF000,12),12)
+		lan = string.char(memory.readbyte(0x023FFE0F))
+		gamecode = bts(memory.readbyterange(0x023FF000+0xA8C,4),4) -- Or E0C ?
+		gen = 4
+		resolution = table["resolutions"].nintendoDS
+	elseif string.find(bts(memory.readbyterange(0x023FFE00,12),12), "POKEMON") then
+		version = bts(memory.readbyterange(0x023FFE00,12),12)
+		lan = string.char(memory.readbyte(0x023FFE0F))
+		gamecode = bts(memory.readbyterange(0x023FFE00+0xA8C,4),4) -- Or E0C ?
+		gen = 5
+		resolution = table["resolutions"].nintendoDS
+	else	
+		version = 0
+		lan = 0
+		gen = 0
+		resolution = table["resolutions"].gameBoyColor
 	end
-	local gamedata = {version, lan, gen, sel}
+	local gamedata = {version, lan, gen, resolution}
 	return gamedata
 end
 
-function statusChange(input) -- Manages modes change through key presses
-    if input[settings["key"][1]] and not prev[settings["key"][1]] then 
-        local max = gen <=2 and 3 or 4
-		if mode < max then mode=mode+1 else mode=1 end
-    end
-    if input[settings["key"][2]] and not prev[settings["key"][2]] then 
-        if status==1 then status = 2 else status = 1 end
-    end
-    if input[settings["key"][3]] and not prev[settings["key"][3]] then
+function resolveBase(desc)
+	if not desc or not desc.ptr then return nil end
+	
+	-- No add and no chain = direct address (don't dereference)
+	if not desc.add and not desc.chain then
+		return desc.ptr
+	end
+	
+	-- Always dereference ptr first
+	local addr = memory.readdword(desc.ptr)
+	if addr == 0 then return nil end
+	
+	-- Follow chain if present
+	if desc.chain then
+		for _, off in ipairs(desc.chain) do
+			addr = memory.readdword(addr + off)
+			if addr == 0 then return nil end
+		end
+	end
+	
+	return addr + (desc.add or 0)
+end
+
+function statusChange(input)
+	if input[key.SWITCH_MODE] and not prev[key.SWITCH_MODE] then 
+		local max = (gen <= 2) and 3 or 4
+		mode = (mode < max) and (mode + 1) or 1
+	end
+	if input[key.SWITCH_STATUS] and not prev[key.SWITCH_STATUS] then 
+		status = (status == 1) and 2 or 1
+	end
+	if input[key.SUB_STATUS] and not prev[key.SUB_STATUS] then
 		if gen <= 2 and status == 2 then
 			substatus[2] = 1
-        elseif substatus[status] < 6 then 
-			substatus[status] = substatus[status]+1 
-		else 
-			substatus[status]=1 
+		else
+			substatus[status] = (substatus[status] < 6) and (substatus[status] + 1) or 1
 		end
-    end
-    if input[settings["key"][4]] and not prev[settings["key"][4]] then 
+	end
+	if input[key.TOGGLE_MORE] and not prev[key.TOGGLE_MORE] then 
 		help = 0
-        more = more == 1 and 0 or 1
-    end
-	if input[settings["key"][5]] and not prev[settings["key"][5]] then
+		more = (more == 1) and 0 or 1
+	end
+	if input[key.TOGGLE_HELP] and not prev[key.TOGGLE_HELP] then
 		more = 0
-		help = help == 1 and 0 or 1
+		help = (help == 1) and 0 or 1
 	end
 	if input["Y"] and not prev["Y"] then
 		more = 0
 		help = 0
 		status = 1
-		substatus = {1,1,1}
-		yling = yling == 1 and 0 or 1
+		substatus = {1, 1, 1}
+		yling = (yling == 1) and 0 or 1
 	end
-    prev=input
+	prev = input
 end
 
 function checkLast(pid,checksum,start,gen) -- Compares pid and checksum with current pid and checksum
@@ -138,34 +154,44 @@ function checkLast(pid,checksum,start,gen) -- Compares pid and checksum with cur
 	end
 end
 
+local function shinyValue(p)
+	local pid_low  = bit.band(p.pid, 0xFFFF)
+	local pid_high = bit.rshift(p.pid, 16)
+
+	return bit.bxor(
+		bit.bxor(p.OTTID, p.OTSID),
+		bit.bxor(pid_low, pid_high)
+	)
+end
+
 function fetchPokemon(start) -- Fetches Pokemon info from memory and returns a table with all the data
-    local mdword=memory.readdwordunsigned 
-    local mword=memory.readwordunsigned
-    local mbyte=memory.readbyteunsigned
+	local mdword=memory.readdwordunsigned 
+	local mword=memory.readwordunsigned
+	local mbyte=memory.readbyteunsigned
 	local mbyterange=memory.readbyterangeunsigned
-    local bnd,br,bxr=bit.band,bit.bor,bit.bxor
-    local rshift, lshift=bit.rshift, bit.lshift
-    local prng
-    
-    function getbits(a,b,d) -- Get bits (kinda obvious right ?)
-        return rshift(a,b)%lshift(1,d)
-    end
-    
-    function mult32(a,b) -- 32 bits multiplication
-        local c=rshift(a,16)
-        local d=a%0x10000
-        local e=rshift(b,16)
-        local f=b%0x10000
-        local g=(c*f+d*e)%0x10000
-        local h=d*f
-        local i=g*0x10000+h
-        return i
-    end
+	local bnd,br,bxr=bit.band,bit.bor,bit.bxor
+	local rshift, lshift=bit.rshift, bit.lshift
+	local prng
 	
+	function getbits(a,b,d) -- Get bits (kinda obvious right ?)
+		return rshift(a,b)%lshift(1,d)
+	end
+	
+	function mult32(a,b) -- 32 bits multiplication
+		local c=rshift(a,16)
+		local d=a%0x10000
+		local e=rshift(b,16)
+		local f=b%0x10000
+		local g=(c*f+d*e)%0x10000
+		local h=d*f
+		local i=g*0x10000+h
+		return i
+	end
+
 	function gettop(a) -- Rshift for data decryption
 		return(rshift(a,16))
 	end
-    
+	
 	if gen == 1 then -- -Gen 1 routine
 		local pokemon={}
 			pokemon["hp"] = {}
@@ -192,7 +218,7 @@ function fetchPokemon(start) -- Fetches Pokemon info from memory and returns a t
 				pokemon["stats"][4]=0x100*mbyte(start+0x28) + mbyte(start+0x29)
 				pokemon["stats"][5]=0x100*mbyte(start+0x2A) + mbyte(start+0x2B)
 				pokemon["xp"] = 0x10000*mbyte(start+0x0E)+0x100*mbyte(start+0x0F)+mbyte(start+0x10)
-                pokemon["helditem"] = mbyte(start+0x07)
+				pokemon["helditem"] = mbyte(start+0x07)
 			else -- Enemy
 				pokemon["hp"]["max"] = 0x100*mbyte(start+0xF) + mbyte(start+0x10)
 				pokemon["TID"] = "0"
@@ -209,45 +235,49 @@ function fetchPokemon(start) -- Fetches Pokemon info from memory and returns a t
 				pokemon["stats"][4]=0x100*mbyte(start+0x15) + mbyte(start+0x16)
 				pokemon["stats"][5]=0x100*mbyte(start+0x17) + mbyte(start+0x18)
 				pokemon["xp"] = mbyte(start+0x23)
-                pokemon["helditem"]=mbyte(start+0x23)
+				pokemon["helditem"]=mbyte(start+0x23)
 			end
 			pokemon["species"] = table["gen1id"][mbyte(start)]
-            pokemon["speciesname"] = table["pokemon"][pokemon["species"]]
+			pokemon["speciesname"] = table["pokemon"][pokemon["species"]]
 			pokemon["hp"]["current"] = 0x100*mbyte(start+0x01) + mbyte(start+0x02)
-			pokemon["move"] = {mbyte(start+0x08),mbyte(start+0x09),mbyte(start+0x0A),mbyte(start+0x0B)}	
+			pokemon["move"] = {mbyte(start+0x08),mbyte(start+0x09),mbyte(start+0x0A),mbyte(start+0x0B)}   
 			
 			pokemon["iv"]={}
-            pokemon["iv"][2] = getbits(pokemon["ivs"],4,4)
-            pokemon["iv"][3] = getbits(pokemon["ivs"],0,4)
-            pokemon["iv"][4] = getbits(pokemon["ivs"],8,4)
-            pokemon["iv"][5] = getbits(pokemon["ivs"],12,4)
+			pokemon["iv"][2] = getbits(pokemon["ivs"],4,4)
+			pokemon["iv"][3] = getbits(pokemon["ivs"],0,4)
+			pokemon["iv"][4] = getbits(pokemon["ivs"],8,4)
+			pokemon["iv"][5] = getbits(pokemon["ivs"],12,4)
 			pokemon["iv"][1] = ((pokemon["iv"][2] % 2) * (2^3)) + ((pokemon["iv"][3] % 2) * (2^2)) + ((pokemon["iv"][4] % 2) * (2^1)) + ((pokemon["iv"][5] % 2) * (2^0))
 			
-            pokemon["hiddenpower"]={}
+			pokemon["hiddenpower"]={}
 			pokemon["hiddenpower"]["type"]=4*pokemon["iv"][2]%4+4*pokemon["iv"][3]%4
 			pokemon["hiddenpower"]["base"]=((5*(math.floor(pokemon["iv"][5]/8)+2*math.floor(pokemon["iv"][4]/8)+4*math.floor(pokemon["iv"][3]/8)+8*math.floor(pokemon["iv"][2]/8))+pokemon["iv"][5]%4)/2)+31
 			
-            pokemon["pid"]=pokemon["species"]
+			pokemon["pid"]=pokemon["species"]
 			pokemon["checksum"]=pokemon["ivs"]
 			
-            if pokemon["iv"][3] == 10 and pokemon["iv"][4] == 10 and pokemon["iv"][5] == 10 then
+			-- Gen 1 Shiny Calculation (IV Based)
+			if pokemon["iv"][3] == 10 and pokemon["iv"][4] == 10 and pokemon["iv"][5] == 10 then
 				local atk = pokemon["iv"][2]
 				if atk == 2 or atk == 3 or atk == 6 or atk == 7 or atk == 10 or atk == 11 or atk == 14 or atk == 15 then
 					pokemon["shiny"] = 1
+				else
+					pokemon["shiny"] = 0
 				end
 			else
 				pokemon["shiny"] = 0
 			end
+
 			if version == "POKEMON YELL" and pokemon["species"] == 25 and status == 1 then
 				pokemon["friendship"] = mbyte(start+0x305)
 			end
 			
-            return pokemon
+			return pokemon
 	
-    elseif gen == 2 then -- Gen 2 routine
+	elseif gen == 2 then -- Gen 2 routine
 		local pokemon={}
 		pokemon["species"] = mbyte(start)
-        pokemon["speciesname"] = table["pokemon"][pokemon["species"]]
+		pokemon["speciesname"] = table["pokemon"][pokemon["species"]]
 		pokemon["helditem"] = mbyte(start+0x01)
 		pokemon["move"] = {mbyte(start+0x02),mbyte(start+0x03),mbyte(start+0x04),mbyte(start+0x05)}
 		pokemon["xp"] = 0x10000*mbyte(start+0x08)+0x100*mbyte(start+0x09)+mbyte(start+0x0A)
@@ -303,6 +333,19 @@ function fetchPokemon(start) -- Fetches Pokemon info from memory and returns a t
 		pokemon["hiddenpower"]={}
 		pokemon["hiddenpower"]["type"]=4*pokemon["iv"][2]%4+4*pokemon["iv"][3]%4
 		pokemon["hiddenpower"]["base"]=((5*(math.floor(pokemon["iv"][5]/8)+2*math.floor(pokemon["iv"][4]/8)+4*math.floor(pokemon["iv"][3]/8)+8*math.floor(pokemon["iv"][2]/8))+pokemon["iv"][5]%4)/2)+31
+		
+		-- Gen 2 Shiny Calculation (Same logic as Gen 1 - IV Based)
+		if pokemon["iv"][3] == 10 and pokemon["iv"][4] == 10 and pokemon["iv"][5] == 10 then
+			local atk = pokemon["iv"][2]
+			if atk == 2 or atk == 3 or atk == 6 or atk == 7 or atk == 10 or atk == 11 or atk == 14 or atk == 15 then
+				pokemon["shiny"] = 1
+			else
+				pokemon["shiny"] = 0
+			end
+		else
+			pokemon["shiny"] = 0
+		end
+
 		return pokemon
 		
 	elseif gen == 3 then -- Routine for Gen 3
@@ -348,8 +391,16 @@ function fetchPokemon(start) -- Fetches Pokemon info from memory and returns a t
 			pokemon["hp"]["current"] = mword(start+86)
 			pokemon["hp"]["max"] = mword(start+88)
 			pokemon["stats"]={mword(start+88),mword(start+90),mword(start+92),mword(start+96),mword(start+98),mword(start+94)}
+			
+			-- Gen 3 Shiny Calculation (PID/SID Based)
+			if shinyValue(pokemon) < 8 then
+				pokemon["shiny"] = 1
+			else
+				pokemon["shiny"] = 0
+			end
+
 		return pokemon
-    elseif gen >= 4 then -- Routine for gens 4 and 5
+	elseif gen >= 4 then -- Routine for gens 4 and 5
 		local pokemon={}
 		local decrypted={}
 		
@@ -400,9 +451,9 @@ function fetchPokemon(start) -- Fetches Pokemon info from memory and returns a t
 		pokemon["ability"] = getbits(decrypted[0x14+offset["A"]],8,8)
 		pokemon["markings"] = decrypted[0x16+offset["A"]]
 		pokemon["language"] = decrypted[0x17+offset["A"]]
-        pokemon["ev"]={getbits(decrypted[0x18+offset["A"]],0,8),getbits(decrypted[0x18+offset["A"]],8,8),getbits(decrypted[0x1A+offset["A"]],0,8),getbits(decrypted[0x1C+offset["A"]],0,8),getbits(decrypted[0x1C+offset["A"]],8,8),getbits(decrypted[0x1A+offset["A"]],8,8)}
-        pokemon["contest"]={getbits(decrypted[0x1E+offset["A"]],0,8),getbits(decrypted[0x1E+offset["A"]],8,8),getbits(decrypted[0x20+offset["A"]],0,8),getbits(decrypted[0x20+offset["A"]],8,8),getbits(decrypted[0x22+offset["A"]],0,8),getbits(decrypted[0x22+offset["A"]],8,8)}
-        pokemon["ribbon"]={decrypted[0x24+offset["A"]],decrypted[0x26+offset["A"]]}
+		pokemon["ev"]={getbits(decrypted[0x18+offset["A"]],0,8),getbits(decrypted[0x18+offset["A"]],8,8),getbits(decrypted[0x1A+offset["A"]],0,8),getbits(decrypted[0x1C+offset["A"]],0,8),getbits(decrypted[0x1C+offset["A"]],8,8),getbits(decrypted[0x1A+offset["A"]],8,8)}
+		pokemon["contest"]={getbits(decrypted[0x1E+offset["A"]],0,8),getbits(decrypted[0x1E+offset["A"]],8,8),getbits(decrypted[0x20+offset["A"]],0,8),getbits(decrypted[0x20+offset["A"]],8,8),getbits(decrypted[0x22+offset["A"]],0,8),getbits(decrypted[0x22+offset["A"]],8,8)}
+		pokemon["ribbon"]={decrypted[0x24+offset["A"]],decrypted[0x26+offset["A"]]}
 		-- Block B
 		pokemon["move"]={decrypted[0x28+offset["B"]],decrypted[0x2A+offset["B"]],decrypted[0x2C+offset["B"]],decrypted[0x2E+offset["B"]]}
 		pokemon["pp"]={getbits(decrypted[0x30+offset["B"]],0,8),getbits(decrypted[0x30+offset["B"]],8,8),getbits(decrypted[0x32+offset["B"]],0,8),getbits(decrypted[0x32+offset["B"]],8,8)}
@@ -417,6 +468,14 @@ function fetchPokemon(start) -- Fetches Pokemon info from memory and returns a t
 		pokemon["hiddenpower"]["type"]=math.floor(((pokemon["iv"][1]%2 + 2*(pokemon["iv"][2]%2) + 4*(pokemon["iv"][3]%2) + 8*(pokemon["iv"][6]%2) + 16*(pokemon["iv"][4]%2) + 32*(pokemon["iv"][5]%2))*15)/63)
 		pokemon["hiddenpower"]["base"]=math.floor((( getbits(pokemon["iv"][1],1,1) + 2*getbits(pokemon["iv"][2],1,1) + 4*getbits(pokemon["iv"][3],1,1) + 8*getbits(pokemon["iv"][6],1,1) + 16*getbits(pokemon["iv"][4],1,1) + 32*getbits(pokemon["iv"][5],1,1))*40)/63 + 30)
 		lastpid = pokemon["pid"]
+		
+		-- Gen 4+ Shiny Calculation (PID/SID Based)
+		if shinyValue(pokemon) < 8 then
+			pokemon["shiny"] = 1
+		else
+			pokemon["shiny"] = 0
+		end
+
 		return pokemon
-    end
+	end
 end
