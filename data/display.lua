@@ -5,7 +5,7 @@ Display = {}
 
 local resolution = {x = 0, y = 0}
 
-Display.GRID = {COLSX = 40, ROWSY = 17}
+Display.GRID = {COLSX = 38, ROWSY = 17}
 
 Display.GRID.MAX_COLX = Display.GRID.COLSX - 1
 Display.GRID.MAX_ROWY = Display.GRID.ROWSY - 1
@@ -19,7 +19,7 @@ function Display.colToPixelX(colX)
 	if colX < 0 or colX > Display.GRID.MAX_COLX then
 		error("colX must be in range [0, " .. Display.GRID.MAX_COLX .. "]" .. " value is: " .. colX, 2)
 	end
-	return ((resolution.x) * colX) / Display.GRID.COLSX + 2
+	return ((resolution.x-2) * colX) / Display.GRID.COLSX + 2
 end
 
 function Display.rowToPixelY(rowY)
@@ -31,7 +31,7 @@ end
 
 function Display.getRightAlignedColumn(text)
 	local textLength = string.len(text)
-	return Display.GRID.COLSX - textLength - 1
+	return Display.GRID.COLSX - textLength
 end
 
 function Display.mainRender(pokemon, gen, version, state, lastpid, monitor, key, table)
@@ -76,7 +76,8 @@ function Display.mainRender(pokemon, gen, version, state, lastpid, monitor, key,
 	Display.frameCounter(Display.colToPixelX(0), Display.rowToPixelY(Display.GRID.MAX_ROWY), version)
 	
 	-- Shiny status
-	gui.text(Display.colToPixelX(30), Display.rowToPixelY(Display.GRID.MAX_ROWY), pokemon["shiny"] == 1 and "Shiny" or "Not shiny", pokemon["shiny"] == 1 and "green" or "red")
+	shinyText = pokemon["shiny"] == 1 and "Shiny" or "Not shiny"
+	gui.text(Display.colToPixelX(Display.getRightAlignedColumn(shinyText)), Display.rowToPixelY(Display.GRID.MAX_ROWY), shinyText, pokemon["shiny"] == 1 and "green" or "red")
 	
 	-- "More" menu
 	if state.more == 1 then
@@ -97,7 +98,7 @@ function Display.showHelp(key, state, table)
 	if state.help ~= 1 then
 		return
 	end
-	gui.box(Display.colToPixelX(2) - 5, Display.rowToPixelY(3) - 5, Display.colToPixelX(39) - 5, Display.rowToPixelY(12) + 5, "#ffffcc", "#ffcc33")
+	gui.box(Display.colToPixelX(2) - 5, Display.rowToPixelY(3) - 5, Display.colToPixelX(Display.GRID.MAX_COLX) - 5, Display.rowToPixelY(12) + 5, "#ffffcc", "#ffcc33")
 	gui.text(Display.colToPixelX(2), Display.rowToPixelY(3), "yPokemonStats", "#ee82ee")
 	gui.text(Display.colToPixelX(2), Display.rowToPixelY(4), "http://github.com/yling", "#87cefa")
 	gui.text(Display.colToPixelX(2), Display.rowToPixelY(5), "-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-", "#ffcc33")
@@ -193,7 +194,7 @@ end
 
 -- Display "More" menu with additional Pokemon details
 function Display.moreMenu(pokemon, gen, version, state, table, helditem, lastpid)
-	gui.box(Display.colToPixelX(2) - 5, Display.rowToPixelY(3) - 5, Display.colToPixelX(39) - 5, Display.rowToPixelY(13) + 5, "#ffffcc", "#ffcc33")
+	gui.box(Display.colToPixelX(2) - 5, Display.rowToPixelY(3) - 5, Display.colToPixelX(Display.GRID.MAX_COLX) - 5, Display.rowToPixelY(13) + 5, "#ffffcc", "#ffcc33")
 	
 	if gen >= 3 then
 		Display.moreMenuGen3Plus(2, 3, pokemon, gen, table, helditem)
