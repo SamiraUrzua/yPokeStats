@@ -91,40 +91,7 @@ function resolveBase(desc)
 	return addr + (desc.add or 0)
 end
 
-function statusChange(input)
-	if input[key.SWITCH_MODE] and not prev[key.SWITCH_MODE] then 
-		local max = (gen <= 2) and 3 or 4
-		mode = (mode < max) and (mode + 1) or 1
-	end
-	if input[key.SWITCH_STATUS] and not prev[key.SWITCH_STATUS] then 
-		status = (status == 1) and 2 or 1
-	end
-	if input[key.SUB_STATUS] and not prev[key.SUB_STATUS] then
-		if gen <= 2 and status == 2 then
-			substatus[2] = 1
-		else
-			substatus[status] = (substatus[status] < 6) and (substatus[status] + 1) or 1
-		end
-	end
-	if input[key.TOGGLE_MORE] and not prev[key.TOGGLE_MORE] then 
-		help = 0
-		more = (more == 1) and 0 or 1
-	end
-	if input[key.TOGGLE_HELP] and not prev[key.TOGGLE_HELP] then
-		more = 0
-		help = (help == 1) and 0 or 1
-	end
-	if input["Y"] and not prev["Y"] then
-		more = 0
-		help = 0
-		status = 1
-		substatus = {1, 1, 1}
-		yling = (yling == 1) and 0 or 1
-	end
-	prev = input
-end
-
-function checkLast(pid,checksum,start,gen) -- Compares pid and checksum with current pid and checksum
+function checkLast(pid, checksum, start, gen, selectedPkmnSide) -- Compares pid and checksum with current pid and checksum
 	local mdword=memory.readdwordunsigned
 	local mword=memory.readwordunsigned
 	local mbyte=memory.readbyteunsigned
@@ -136,7 +103,7 @@ function checkLast(pid,checksum,start,gen) -- Compares pid and checksum with cur
 	
 	if gen <= 2 then
 		currentpid = gen == 1 and table["gen1id"][mbyte(start)] or mbyte(start)
-		if status == 1 then
+		if selectedPkmnSide == pkmnSide.PLAYER then
 			currentchecksum = gen == 1 and mword(start+0x1B) or mword(start+0x15)
 		else 
 			currentchecksum = gen == 1 and mword(start+0xC) or mword(start+0x06)
@@ -150,7 +117,6 @@ function checkLast(pid,checksum,start,gen) -- Compares pid and checksum with cur
 		return 1
 	else
 		return 0
-		
 	end
 end
 
@@ -164,7 +130,7 @@ local function shinyValue(p)
 	)
 end
 
-function fetchPokemon(start) -- Fetches Pokemon info from memory and returns a table with all the data
+function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from memory and returns a table with all the data
 	local mdword=memory.readdwordunsigned 
 	local mword=memory.readwordunsigned
 	local mbyte=memory.readbyteunsigned
@@ -197,7 +163,7 @@ function fetchPokemon(start) -- Fetches Pokemon info from memory and returns a t
 			pokemon["hp"] = {}
 			pokemon["stats"]={}
 --d46f
-			if status == 1 then -- Your Pokemon
+			if selectedPkmnSide == pkmnSide.PLAYER then -- Your Pokemon
 				pokemon["hp"]["max"] = 0x100*mbyte(start+0x22) + mbyte(start+0x23)
 				pokemon["TID"] = 0x100*mbyte(start+0x0C) + mbyte(start+0x0D)
 				pokemon["pp"]={}
@@ -268,7 +234,7 @@ function fetchPokemon(start) -- Fetches Pokemon info from memory and returns a t
 				pokemon["shiny"] = 0
 			end
 
-			if version == "POKEMON YELL" and pokemon["species"] == 25 and status == 1 then
+			if version == "POKEMON YELL" and pokemon["species"] == 25 and selectedPkmnSide == pkmnSide.PLAYER then
 				pokemon["friendship"] = mbyte(start+0x305)
 			end
 			
@@ -281,7 +247,7 @@ function fetchPokemon(start) -- Fetches Pokemon info from memory and returns a t
 		pokemon["helditem"] = mbyte(start+0x01)
 		pokemon["move"] = {mbyte(start+0x02),mbyte(start+0x03),mbyte(start+0x04),mbyte(start+0x05)}
 		pokemon["xp"] = 0x10000*mbyte(start+0x08)+0x100*mbyte(start+0x09)+mbyte(start+0x0A)
-		if status == 1 then -- Player
+		if selectedPkmnSide == pkmnSide.PLAYER then -- Player
 			pokemon["TID"] = 0x100*mbyte(start+0x06) + mbyte(start+0x07)
 			pokemon["ev"] = {}
 			pokemon["ev"][1] = 0x100*mbyte(start+0x0B) + mbyte(start+0x0C)

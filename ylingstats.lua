@@ -13,7 +13,7 @@ dofile "data/memory.lua"  -- Functions and Pokemon table generation
 dofile "data/display.lua" -- Display module
 
 local gamedata = getGameInfo() -- Gets game info
-version, lan, gen, resolution = gamedata[1], gamedata[2], gamedata[3], gamedata[4]
+local version, lan, gen, resolution = gamedata[1], gamedata[2], gamedata[3], gamedata[4]
 Display.setResolution(resolution)
 
 -- Note : "O" seems to be the letter used in DSi enhanced games 
@@ -41,74 +41,110 @@ end
 print("Welcome to yPokeStats Unified ")
 print("Game :", games[version][lan][1])
 
-settings={}
-settings["key"] = {	SWITCH_MODE		= "J", -- Switch mode (EV,IV,Stats)
-					SWITCH_STATUS	= "K", -- Switch status (Enemy / player)
-					SUB_STATUS		= "L", -- Sub Status + (Pokemon Slot)
-					TOGGLE_MORE		= "M", -- Show more data
-					TOGGLE_HELP		= "H"} -- Toggle help
+pkmnSide = {PLAYER = 1, ENEMY = 2}
 
-status, mode, help= 1, 1, 1 -- Default status and substatus - 1,1,1 is Player's first Pokémon
-substatus={1, 1, 1}
-lastpid,lastchecksum=0, 0 -- Will be useful to avoid re-loading the same pokemon over and over again
-count,clockcount,totalclocktime,lastclocktime,highestclocktime,yling=0, 0, 0, 0, 0, 0 -- Monitoring - useless
+local key = {	SWITCH_MODE					= "J", -- Switch mode (EV,IV,Stats)
+				SWITCH_SELECTED_POKEMON		= "K", -- Switch pokemon side (Enemy / player)
+				POKEMON_SLOT				= "L", -- Pokemon Slot
+				TOGGLE_MORE					= "M", -- Show more data
+				TOGGLE_HELP					= "H"} -- Toggle help
+
+local state = {selectedPkmnSide = pkmnSide.PLAYER, mode = 3, help = 0, more = 0, pokemonSlot = {1, 1}}
+local cache = {lastpid = 0, lastchecksum = 0, lastPokemonSide = 1}
+local pokemon = nil
+local monitor = {yling = 0, count = 0, clockcount = 0, totalclocktime = 0, lastclocktime = 0, highestclocktime = 0, meanclocktime = 0}
 
 local prev = input.get() -- Preparing the input tables - allows to check if a key has been pressed
 
 function main() -- Main function - display (check memory.lua for calculations)
-	nClock = os.clock() -- Set the clock (for performance monitoring -- useless)
+	nClock = os.clock() -- Set the clock (for performance monitoring)
 	statusChange(input.get()) -- Check for key input and changes status
 	
-	if help==1 then -- Help screen display
-		Display.showHelp(settings, table)
+	-- Clear pokemon data when status changes to prevent displaying wrong pokemon
+	if cache.lastPokemonSide ~= state.selectedPkmnSide then
+		pokemon = nil
 	end
+	cache.lastPokemonSide = state.selectedPkmnSide
 	
-	if status == 1 then -- Resolve pokemon memory address
+	-- Resolve pokemon memory address
+	if state.selectedPkmnSide == pkmnSide.PLAYER then
 		base = resolveBase(games[version][lan][2]) -- Player pokemon
 	else 
 		base = resolveBase(games[version][lan][3]) -- Enemy pokemon
 	end
-	size = games[version][lan][4]
-	start = base + size * (substatus[status] - 1)
 	
+	size = games[version][lan][4]
+	start = base + size * (state.pokemonSlot[state.selectedPkmnSide] - 1)
+	
+	-- Fetch pokemon data if valid memory found
 	if start and (memory.readdwordunsigned(start) ~= 0 or memory.readbyteunsigned(start) ~= 0) then
-		if checkLast(lastpid, lastchecksum, start, gen) == 0 or not pokemon or not pokemon["species"] then
-			local fetched = fetchPokemon(start)
-			count = count + 1
+		if checkLast(cache.lastpid, cache.lastchecksum, start, gen, state.selectedPkmnSide) == 0 or not pokemon or not pokemon["species"] then
+			local fetched = fetchPokemon(start, gen, state.selectedPkmnSide)
+			monitor.count = monitor.count + 1
 			
 			if fetched and fetched["species"] and fetched["speciesname"] then
-				if fetched["hp"] and fetched["hp"]["max"] > 0 and fetched["hp"]["max"] < 1000 then -- Check that stats loaded correctly
+				if fetched["hp"] and fetched["hp"]["max"] > 0 and fetched["hp"]["max"] < 1000 then
 					pokemon = fetched
 					if gen >= 3 then
-						lastpid = pokemon["pid"]
-						lastchecksum = pokemon["checksum"]
+						cache.lastpid = pokemon["pid"]
+						cache.lastchecksum = pokemon["checksum"]
 					else
-						lastpid = pokemon["species"]
-						lastchecksum = pokemon["ivs"]
+						cache.lastpid = pokemon["species"]
+						cache.lastchecksum = pokemon["ivs"]
 					end
 				end
 			end
 		end
-		Display.mainRender(settings, pokemon, gen, version, status, mode, substatus, lastpid, more, table)
-	else -- No PID found
-		if status == 1 then -- If player team just reset to slot 1
-			substatus[1] = 1
-		else -- If enemy team just reset to slot 1
-			substatus[2] = 1
+	else
+		-- No PID found - reset pokemonSlot
+		if state.selectedPkmnSide == pkmnSide.PLAYER then
+			state.pokemonSlot[1] = 1
+		else
+			state.pokemonSlot[2] = 1
 		end
-		Display.noPokemon(settings)
 	end
 	
-	-- Script performance (useless)
-	clocktime = os.clock()-nClock
-	clockcount = clockcount + 1
-	totalclocktime = totalclocktime+clocktime
-	lastclocktime = clocktime ~= 0 and clocktime or lastclocktime
-	highestclocktime = clocktime > highestclocktime and clocktime or highestclocktime
-	meanclocktime = totalclocktime/clockcount
-	if yling==1 then -- I lied, there's a secret key to display script performance, but who cares besides me? (It's Y)
-		Display.performanceStats(settings, lastclocktime, meanclocktime, highestclocktime, count)
-	end
+	-- Script performance monitoring
+	clocktime = os.clock() - nClock
+	monitor.clockcount = monitor.clockcount + 1
+	monitor.totalclocktime = monitor.totalclocktime + clocktime
+	monitor.lastclocktime = clocktime ~= 0 and clocktime or monitor.lastclocktime
+	monitor.highestclocktime = clocktime > monitor.highestclocktime and clocktime or monitor.highestclocktime
+	monitor.meanclocktime = monitor.totalclocktime / monitor.clockcount
+	
+	-- Render
+	Display.mainRender(pokemon, gen, version, state, cache.lastpid, monitor, key, table)
 end
 
 gui.register(main)
+
+function statusChange(input)
+	if input[key.SWITCH_MODE] and not prev[key.SWITCH_MODE] then 
+		local max = (gen <= 2) and 3 or 4
+		state.mode = (state.mode < max) and (state.mode + 1) or 1
+	end
+	if input[key.SWITCH_SELECTED_POKEMON] and not prev[key.SWITCH_SELECTED_POKEMON] then 
+		state.selectedPkmnSide = (state.selectedPkmnSide == 1) and 2 or 1
+	end
+	if input[key.POKEMON_SLOT] and not prev[key.POKEMON_SLOT] then
+		if gen <= 2 and state.selectedPkmnSide == pkmnSide.ENEMY then
+			state.pokemonSlot[2] = 1
+		else
+			state.pokemonSlot[state.selectedPkmnSide] = (state.pokemonSlot[state.selectedPkmnSide] < 6) and (state.pokemonSlot[state.selectedPkmnSide] + 1) or 1
+		end
+	end
+	if input[key.TOGGLE_MORE] and not prev[key.TOGGLE_MORE] then 
+		state.help = 0
+		state.more = (state.more == 1) and 0 or 1
+	end
+	if input[key.TOGGLE_HELP] and not prev[key.TOGGLE_HELP] then
+		state.more = 0
+		state.help = (state.help == 1) and 0 or 1
+	end
+	if input["Y"] and not prev["Y"] then
+		state.more = 0
+		state.help = 0
+		monitor.yling = (monitor.yling == 1) and 0 or 1
+	end
+	prev = input
+end

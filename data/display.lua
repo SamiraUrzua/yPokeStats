@@ -5,7 +5,7 @@ Display = {}
 
 local resolution = {x = 0, y = 0}
 
-Display.GRID = {COLSX = 40, ROWSY = 16}
+Display.GRID = {COLSX = 40, ROWSY = 17}
 
 Display.GRID.MAX_COLX = Display.GRID.COLSX - 1
 Display.GRID.MAX_ROWY = Display.GRID.ROWSY - 1
@@ -17,31 +17,60 @@ end
 
 function Display.colToPixelX(colX)
 	if colX < 0 or colX > Display.GRID.MAX_COLX then
-		error("colX must be in range [0, " .. Display.GRID.MAX_COLX .. "]" .. "value is: " .. colX, 2)
+		error("colX must be in range [0, " .. Display.GRID.MAX_COLX .. "]" .. " value is: " .. colX, 2)
 	end
-	return (resolution.x * colX) / Display.GRID.COLSX + 2
+	return ((resolution.x) * colX) / Display.GRID.COLSX + 2
 end
 
 function Display.rowToPixelY(rowY)
 	if rowY < 0 or rowY > Display.GRID.MAX_ROWY then
-		error("rowY must be in range [0, " .. Display.GRID.MAX_ROWY .. "]" .. "value is: " .. rowY, 2)
+		error("rowY must be in range [0, " .. Display.GRID.MAX_ROWY .. "]" .. " value is: " .. rowY, 2)
 	end
-	return (resolution.y * rowY) / Display.GRID.ROWSY + 2
+	return ((resolution.y-2) * rowY) / Display.GRID.ROWSY + 2
 end
 
-function Display.mainRender(settings, pokemon, gen, version, status, mode, substatus, lastpid, more, table)
+function Display.getRightAlignedColumn(text)
+	local textLength = string.len(text)
+	return Display.GRID.COLSX - textLength - 1
+end
+
+function Display.mainRender(pokemon, gen, version, state, lastpid, monitor, key, table)
+	if not pokemon or not pokemon["species"] then
+		Display.noPokemon()
+		return
+	end
+	--Help
+	Display.showHelp(key, state, table)
+	
 	-- Prepare display variables
-	local tmpcolor = status == 1 and "green" or "red"
+	local tmpcolor = state.selectedPkmnSide == 1 and "green" or "red"
 	
 	-- Display pokemon stats
-	Display.statsDisplay(settings, pokemon, gen, mode, substatus, lastpid, table, tmpcolor)
+	Display.statsDisplay(pokemon, gen, state.mode, state.pokemonSlot, lastpid, table, tmpcolor)
 	
-	-- Species
-	local g = gen <= 2
-	gui.text(Display.colToPixelX(0), Display.rowToPixelY(g and 14 or 1), pokemon["species"] .. ":" .. pokemon["speciesname"], tmpcolor)
+	-- Status indicator
+	Display.statusIndicator((gen <= 2 and 17 or 0), (gen <= 2 and Display.GRID.MAX_ROWY or 0), state.pokemonSlot[1], state.mode, table, tmpcolor)
 	
+	-- PID (Gen 3+)
+	if gen >= 3 then
+		gui.text(Display.colToPixelX(15), Display.rowToPixelY(Display.GRID.MAX_ROWY), "PID: " .. bit.tohex(lastpid))
+	end
+	
+	-- Species display
+	if gen <= 2 then
+		local speciesText = pokemon["species"] .. ":" .. pokemon["speciesname"]
+		gui.text(Display.colToPixelX(Display.getRightAlignedColumn(speciesText)), Display.rowToPixelY(0), speciesText, tmpcolor)
+	else
+		gui.text(Display.colToPixelX(0), Display.rowToPixelY(1), pokemon["species"] .. ":" .. pokemon["speciesname"], tmpcolor)
+	end
+
 	-- HP display
-	gui.text(Display.colToPixelX(g and 0 or 11), Display.rowToPixelY(g and 13 or 0), "HP:" .. pokemon["hp"]["current"] .. "/" .. pokemon["hp"]["max"], tmpcolor)
+	if gen <= 2 then
+		local hpText = pokemon["hp"]["current"] .. "/" .. pokemon["hp"]["max"] .. ":HP"
+		gui.text(Display.colToPixelX(Display.getRightAlignedColumn(hpText)), Display.rowToPixelY(1), hpText, tmpcolor)
+	else
+		gui.text(Display.colToPixelX(11), Display.rowToPixelY(0), "HP:" .. pokemon["hp"]["current"] .. "/" .. pokemon["hp"]["max"], tmpcolor)
+	end
 
 	-- Frame counter
 	Display.frameCounter(Display.colToPixelX(0), Display.rowToPixelY(Display.GRID.MAX_ROWY), version)
@@ -50,66 +79,80 @@ function Display.mainRender(settings, pokemon, gen, version, status, mode, subst
 	gui.text(Display.colToPixelX(30), Display.rowToPixelY(Display.GRID.MAX_ROWY), pokemon["shiny"] == 1 and "Shiny" or "Not shiny", pokemon["shiny"] == 1 and "green" or "red")
 	
 	-- "More" menu
-	if more == 1 then
+	if state.more == 1 then
 		local helditem = pokemon["helditem"] == 0 and "none" or table["items"][gen][pokemon["helditem"]]
-		Display.moreMenu(settings, pokemon, gen, version, status, table, helditem, lastpid)
+		Display.moreMenu(pokemon, gen, version, state, table, helditem, lastpid)
 	end
+	
+	Display.performanceStats(monitor)
 end
 
 -- Display "no Pokemon" warning
-function Display.noPokemon(settings)
+function Display.noPokemon()
 	gui.text(Display.colToPixelX(0), Display.rowToPixelY(0), "No Pokemon", "red")
 end
 
 -- Display help menu
-function Display.showHelp(settings, table)
+function Display.showHelp(key, state, table)
+	if state.help ~= 1 then
+		return
+	end
 	gui.box(Display.colToPixelX(2) - 5, Display.rowToPixelY(3) - 5, Display.colToPixelX(39) - 5, Display.rowToPixelY(12) + 5, "#ffffcc", "#ffcc33")
 	gui.text(Display.colToPixelX(2), Display.rowToPixelY(3), "yPokemonStats", "#ee82ee")
 	gui.text(Display.colToPixelX(2), Display.rowToPixelY(4), "http://github.com/yling", "#87cefa")
 	gui.text(Display.colToPixelX(2), Display.rowToPixelY(5), "-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-", "#ffcc33")
-	
-	local helpLines = {	{settings["key"].SWITCH_MODE,	": IVs, EVs, Stats and Contest stats", 5},
-						{settings["key"].SWITCH_STATUS,	": Player team / Enemy team", 4},
-						{settings["key"].SUB_STATUS,	": Pokemon slot (1-6)", 3},
-						{settings["key"].TOGGLE_MORE,	": Show more data", 2},
-						{settings["key"].TOGGLE_HELP,	": Toggle this menu", 1}}
-
+	local helpLines = {	{key.SWITCH_MODE,	": IVs, EVs, Stats and Contest stats", 5},
+						{key.SWITCH_SELECTED_POKEMON,	": Player team / Enemy team", 4},
+						{key.POKEMON_SLOT,	": Pokemon slot (1-6)", 3},
+						{key.TOGGLE_MORE,	": Show more data", 2},
+						{key.TOGGLE_HELP,	": Toggle this menu", 1}}
 	for i, line in ipairs(helpLines) do
 		gui.text(Display.colToPixelX(2), Display.rowToPixelY(6 + i), line[1] .. line[2], table["colors"][line[3]])
 	end
 end
 
-function Display.statsDisplay(settings, pokemon, gen, mode, substatus, lastpid, table, color)
+local labels = {"HP","AT","DF","SA","SD","SP"} -- Stats labels (Keep in the same order)
+local contests = {"CO","BE","CU","SM","TH","FE"} -- Contest stats labels (Keep in the same order)
+local gen1labels = {"HP","AT","DF","SP","SC"}
+local modesorder={"iv","ev","stats","contest"}
+
+function Display.statsDisplay(pokemon, gen, mode, pokemonSlot, lastpid, table, color)
 	local statCount = gen <= 2 and 5 or 6
-	local labels = gen <= 2 and table["gen1labels"] or table["labels"]
+	local statsLabels = mode == 4 and contests or (gen <= 2 and gen1labels or labels)
 	
 	-- Get IV data based on generation
-	local ivData = pokemon[table["modesorder"][mode]]
+	local ivData = pokemon[modesorder[mode]]
 	
 	-- Display stats
-	for i = 1, statCount do
-		local colX = Display.GRID.COLSX - (i * 3)
-		
-		-- Label at top
-		gui.text(Display.colToPixelX(colX), Display.rowToPixelY(0), labels[statCount + 1 - i], table["colors"][statCount + 1 - i])
-		
-		-- IV value one row below
-		local iv = ivData[statCount + 1 - i]
-		local ivText = iv == 31 and (iv .. "*") or iv
-		gui.text(Display.colToPixelX(colX), Display.rowToPixelY(1), ivText, table["colors"][statCount + 1 - i])
-		
-		-- Nature indicator (Gen 3+, not for mode 4)
-		if gen >= 3 and mode ~= 4 then
-			Display.natureIndicator(colX, 1, i, pokemon, table)
+	if gen <= 2 then
+		-- Gen 1-2: Vertical display on right side with "number:statname" format
+		for i = 1, statCount do
+			local row = i - 1
+			local iv = ivData[i]
+			local ivText = mode == 1 and iv == 15 and ( "*" .. iv) or iv
+			local displayText = ivText .. ":" .. statsLabels[i]
+			
+			local rightCol = Display.getRightAlignedColumn(displayText)
+			gui.text(Display.colToPixelX(rightCol), Display.rowToPixelY(row+2), displayText, table["colors"][i])
 		end
-	end
-	
-	-- Status indicator
-	Display.statusIndicator((gen <= 2 and 15 or 0), (gen <= 2 and Display.GRID.MAX_ROWY or 0), substatus[1], mode, table, color)
-	
-	-- PID (Gen 3+)
-	if gen >= 3 then
-		gui.text(Display.colToPixelX(15), Display.rowToPixelY(Display.GRID.MAX_ROWY), "PID: " .. bit.tohex(lastpid))
+	else
+		-- Gen 3+: Horizontal display
+		for i = 1, statCount do
+			local colX = Display.GRID.COLSX - (i * 3)
+			
+			-- Label at top
+			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(0), statsLabels[statCount + 1 - i], table["colors"][statCount + 1 - i])
+			
+			-- IV value one row below
+			local iv = ivData[statCount + 1 - i]
+			local ivText = mode == 1 and iv == 31 and (iv .. "*") or iv
+			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(1), ivText, table["colors"][statCount + 1 - i])
+			
+			-- Nature indicator (not for mode 4/contests)
+			if mode ~= 4 then
+				Display.natureIndicator(colX, 1, i, pokemon, table)
+			end
+		end
 	end
 end
 
@@ -119,20 +162,21 @@ function Display.natureIndicator(colX, rowY, statIndex, pokemon, table)
 	
 	if inc ~= dec then
 		if statIndex == table["statsorder"][inc + 2] then
-			gui.text(Display.colToPixelX(colX)+1, Display.rowToPixelY(rowY)+2, "__", "green")
+			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY)+2, "__", "green")
 		elseif statIndex == table["statsorder"][dec + 2] then
-			gui.text(Display.colToPixelX(colX)+1, Display.rowToPixelY(rowY)+2, "__", "red")
+			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY)+2, "__", "red")
 		end
 	else
 		if statIndex == table["statsorder"][inc + 1] then
-			gui.text(Display.colToPixelX(colX)+1, Display.rowToPixelY(rowY)+2, "__", "grey")
+			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY)+2, "__", "grey")
 		end
 	end
 end
 
 -- Display status indicator (P1, P2, etc.)
-function Display.statusIndicator(colX, rowY, substatus, mode, table, color)
-	local statusText = (color == "green" and "P" or "E") .. substatus .. " (" .. table["modes"][mode] .. ")"
+function Display.statusIndicator(colX, rowY, pokemonSlot, mode, table, color)
+	statModes = {"IVs", "EVs", "Stats", "Cont."}
+	local statusText = (color == "green" and "P" or "E") .. pokemonSlot .. " (" .. statModes[mode] .. ")"
 	gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY), statusText, color)
 end
 
@@ -148,13 +192,13 @@ function Display.frameCounter(x, y, version)
 end
 
 -- Display "More" menu with additional Pokemon details
-function Display.moreMenu(settings, pokemon, gen, version, status, table, helditem, lastpid)
+function Display.moreMenu(pokemon, gen, version, state, table, helditem, lastpid)
 	gui.box(Display.colToPixelX(2) - 5, Display.rowToPixelY(3) - 5, Display.colToPixelX(39) - 5, Display.rowToPixelY(13) + 5, "#ffffcc", "#ffcc33")
 	
 	if gen >= 3 then
 		Display.moreMenuGen3Plus(2, 3, pokemon, gen, table, helditem)
 	else
-		Display.moreMenuGen12(2, 3, pokemon, gen, version, status, table, helditem)
+		Display.moreMenuGen12(2, 3, pokemon, gen, version, state, table, helditem)
 	end
 	
 	-- Hidden Power and Moves (all gens)
@@ -189,10 +233,10 @@ function Display.moreMenuGen3Plus(colX, rowY, pokemon, gen, table, helditem)
 end
 
 -- More menu details for Gen 1-2
-function Display.moreMenuGen12(colX, rowY, pokemon, gen, version, status, table, helditem)
+function Display.moreMenuGen12(colX, rowY, pokemon, gen, version, state, table, helditem)
 	gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY), "TID: " .. pokemon["TID"] .. " / Item: " .. helditem)
 	
-	if gen == 2 or (version == "POKEMON YELL" and status == 1 and pokemon["species"] == 25) then
+	if gen == 2 or (version == "POKEMON YELL" and state.pokemonSlot == 1 and pokemon["species"] == 25) then
 		gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY + 2), "Friendship : " .. pokemon["friendship"])
 	end
 end
@@ -217,9 +261,12 @@ function Display.movesList(colX, rowY, pokemon, table)
 end
 
 -- Display performance stats (secret feature)
-function Display.performanceStats(settings, lastclocktime, meanclocktime, highestclocktime, count)
-	gui.text(Display.colToPixelX(2), Display.rowToPixelY(6), "Last clock time: " .. numTruncate(lastclocktime * 1000, 2) .. "ms")
-	gui.text(Display.colToPixelX(2), Display.rowToPixelY(7), "Mean clock time: " .. numTruncate(meanclocktime * 1000, 2) .. "ms")
-	gui.text(Display.colToPixelX(2), Display.rowToPixelY(8), "Most clock time: " .. numTruncate(highestclocktime * 1000, 2) .. "ms")
-	gui.text(Display.colToPixelX(2), Display.rowToPixelY(9), "Data fetched: " .. count .. "x")
+function Display.performanceStats(monitor)
+	if monitor.yling ~= 1 then
+		return
+	end
+	gui.text(Display.colToPixelX(2), Display.rowToPixelY(6), "Last clock time: " .. numTruncate(monitor.lastclocktime * 1000, 2) .. "ms")
+	gui.text(Display.colToPixelX(2), Display.rowToPixelY(7), "Mean clock time: " .. numTruncate(monitor.meanclocktime * 1000, 2) .. "ms")
+	gui.text(Display.colToPixelX(2), Display.rowToPixelY(8), "Most clock time: " .. numTruncate(monitor.highestclocktime * 1000, 2) .. "ms")
+	gui.text(Display.colToPixelX(2), Display.rowToPixelY(9), "Data fetched: " .. monitor.count .. "x")
 end
