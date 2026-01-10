@@ -91,33 +91,55 @@ function resolveBase(desc)
 	return addr + (desc.add or 0)
 end
 
-function checkLast(pid, checksum, start, gen, selectedPkmnSide) -- Compares pid and checksum with current pid and checksum
-	local mdword=memory.readdwordunsigned
-	local mword=memory.readwordunsigned
-	local mbyte=memory.readbyteunsigned
-	
-	local lastpid = pid
-	local lastchecksum = checksum
-	local currentchecksum
-	local currentpid
-	
-	if gen <= 2 then
-		currentpid = gen == 1 and table["gen1id"][mbyte(start)] or mbyte(start)
-		if selectedPkmnSide == pkmnSide.PLAYER then
-			currentchecksum = gen == 1 and mword(start+0x1B) or mword(start+0x15)
-		else 
-			currentchecksum = gen == 1 and mword(start+0xC) or mword(start+0x06)
-		end
-	else
-		currentpid = mdword(start)
-		currentchecksum = gen == 3 and mdword(start+6) or mword(start+6)
-	end 
+function isPokemonChanged(pid, checksum, start, gen, selectedPkmnSide, previousHP)
+    local mdword = memory.readdwordunsigned
+    local mword  = memory.readwordunsigned
+    local mbyte  = memory.readbyteunsigned
+    local bnd, bxr = bit.band, bit.bxor
+    local rshift  = bit.rshift
+    
+    local currentpid, currentchecksum, currentHP
+    if gen <= 2 then
+        currentpid = gen == 1 and table["gen1id"][mbyte(start)] or mbyte(start)
+        if selectedPkmnSide == pkmnSide.PLAYER then
+            currentchecksum = gen == 1 and mword(start+0x1B) or mword(start+0x15)
+            currentHP = gen == 1
+                and (0x100*mbyte(start+0x01) + mbyte(start+0x02))
+                or  (0x100*mbyte(start+0x22) + mbyte(start+0x23))
+        else
+            currentchecksum = gen == 1 and mword(start+0x0C) or mword(start+0x06)
+            currentHP = gen == 1
+                and (0x100*mbyte(start+0x01) + mbyte(start+0x02))
+                or  (0x100*mbyte(start+0x10) + mbyte(start+0x11))
+        end
 
-	if lastpid == currentpid and lastchecksum == currentchecksum then
-		return 1
-	else
-		return 0
-	end
+    elseif gen == 3 then
+        currentpid = mdword(start)
+        currentchecksum = mdword(start+6)
+        currentHP = mword(start+86)
+    else
+        currentpid = mdword(start)
+        currentchecksum = mword(start+6)
+        
+        local function mult32(a,b)
+            local c = rshift(a,16)
+            local d = a % 0x10000
+            local e = rshift(b,16)
+            local f = b % 0x10000
+            local g = (c*f + d*e) % 0x10000
+            return g*0x10000 + d*f
+        end
+        
+        local prng = currentpid
+        for i = 0x88, 0x8E, 2 do
+            prng = mult32(prng,0x41C64E6D) + 0x6073
+            if i == 0x8E then
+                currentHP = bxr(mword(start+i), rshift(prng,16))
+            end
+        end
+    end
+
+    return pid ~= currentpid or checksum ~= currentchecksum or previousHP ~= currentHP
 end
 
 local function shinyValue(p)
