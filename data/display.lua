@@ -35,62 +35,52 @@ function Display.getRightAlignedColumn(text)
 end
 
 function Display.mainRender(pokemon, gen, version, state, lastpid, monitor, key, table)
-	if not pokemon or not pokemon["species"] then
-		Display.noPokemon()
-		return
-	end
-	--Help
-	Display.showHelp(key, state, table)
-	
-	-- Prepare display variables
+	-- UI data --
 	local tmpcolor = state.selectedPkmnSide == 1 and "green" or "red"
-	
-	-- Display pokemon stats
-	Display.statsDisplay(pokemon, gen, state.mode, state.pokemonSlot, lastpid, table, tmpcolor)
-	
-	-- Status indicator
+	Display.showHelp(key, state, table)
 	Display.statusIndicator((gen <= 2 and 17 or 0), (gen <= 2 and Display.GRID.MAX_ROWY or 0), state.pokemonSlot[1], state.mode, table, tmpcolor)
+	Display.frameCounter(Display.colToPixelX(0), Display.rowToPixelY(Display.GRID.MAX_ROWY), version)
+	Display.performanceStats(monitor)
+	
+	-- Pokemon data --
+	if pokemon then
+		speciesText = pokemon["species"] .. ":" .. pokemon["speciesname"]
+	else
+		speciesText = "0:No pokemon"
+	end
+
+	Display.statsDisplay(pokemon, gen, state.mode, state.pokemonSlot, lastpid, table, tmpcolor)
 	
 	-- PID (Gen 3+)
 	if gen >= 3 then
-		gui.text(Display.colToPixelX(15), Display.rowToPixelY(Display.GRID.MAX_ROWY), "PID: " .. bit.tohex(lastpid))
+		local pidStr = pokemon and bit.tohex(lastpid) or "00000000"
+		gui.text(Display.colToPixelX(15), Display.rowToPixelY(Display.GRID.MAX_ROWY), "PID: " .. pidStr)
 	end
-	
-	-- Species display
-	if gen <= 2 then
-		local speciesText = pokemon["species"] .. ":" .. pokemon["speciesname"]
-		gui.text(Display.colToPixelX(Display.getRightAlignedColumn(speciesText)), Display.rowToPixelY(0), speciesText, tmpcolor)
-	else
-		gui.text(Display.colToPixelX(0), Display.rowToPixelY(1), pokemon["species"] .. ":" .. pokemon["speciesname"], tmpcolor)
-	end
+	gui.text((gen <= 2) and Display.colToPixelX(Display.getRightAlignedColumn(speciesText)) or Display.colToPixelX(0), (gen <= 2) and Display.rowToPixelY(0) or Display.rowToPixelY(1), speciesText, pokemon and tmpcolor or "red")
 
 	-- HP display
+	local hp = (pokemon and pokemon["hp"]["current"] or 0) .. "/" .. (pokemon and pokemon["hp"]["max"] or 0)
+	local hpText = gen <= 2 and (hp .. ":HP") or ("HP:" .. hp)
 	if gen <= 2 then
-		local hpText = pokemon["hp"]["current"] .. "/" .. pokemon["hp"]["max"] .. ":HP"
-		gui.text(Display.colToPixelX(Display.getRightAlignedColumn(hpText)), Display.rowToPixelY(1), hpText, tmpcolor)
+		gui.text(Display.colToPixelX(Display.getRightAlignedColumn(hpText)), Display.rowToPixelY(1), hpText, pokemon and tmpcolor or "red")
 	else
-		gui.text(Display.colToPixelX(11), Display.rowToPixelY(0), "HP:" .. pokemon["hp"]["current"] .. "/" .. pokemon["hp"]["max"], tmpcolor)
+		gui.text(Display.colToPixelX(11), Display.rowToPixelY(0), hpText, pokemon and tmpcolor or "red")
 	end
 
-	-- Frame counter
-	Display.frameCounter(Display.colToPixelX(0), Display.rowToPixelY(Display.GRID.MAX_ROWY), version)
-	
-	-- Shiny status
-	shinyText = pokemon["shiny"] == 1 and "Shiny" or "Not shiny"
-	gui.text(Display.colToPixelX(Display.getRightAlignedColumn(shinyText)), Display.rowToPixelY(Display.GRID.MAX_ROWY), shinyText, pokemon["shiny"] == 1 and "green" or "red")
-	
-	-- "More" menu
-	if state.more == 1 then
-		local helditem = pokemon["helditem"] == 0 and "none" or table["items"][gen][pokemon["helditem"]]
-		Display.moreMenu(pokemon, gen, version, state, table, helditem, lastpid)
+	-- Toggles if pokemon
+	if pokemon then
+		-- Shiny status
+		shinyText = pokemon["shiny"] == 1 and "Shiny" or "Not shiny"
+		gui.text(Display.colToPixelX(Display.getRightAlignedColumn(shinyText)), Display.rowToPixelY(Display.GRID.MAX_ROWY), shinyText, pokemon["shiny"] == 1 and "green" or "red")
+		
+		-- "More" menu
+		if state.more == 1 then
+			local helditem = pokemon["helditem"] == 0 and "none" or table["items"][gen][pokemon["helditem"]]
+			Display.moreMenu(pokemon, gen, version, state, table, helditem, lastpid)
+		end
 	end
 	
-	Display.performanceStats(monitor)
-end
 
--- Display "no Pokemon" warning
-function Display.noPokemon()
-	gui.text(Display.colToPixelX(0), Display.rowToPixelY(0), "No Pokemon", "red")
 end
 
 -- Display help menu
@@ -121,8 +111,16 @@ function Display.statsDisplay(pokemon, gen, mode, pokemonSlot, lastpid, table, c
 	local statCount = gen <= 2 and 5 or 6
 	local statsLabels = mode == 4 and contests or (gen <= 2 and gen1labels or labels)
 	
-	-- Get IV data based on generation
-	local ivData = pokemon[modesorder[mode]]
+	-- Get IV data based on generation, default to 0s if no pokemon
+	local ivData
+	if not pokemon then
+		ivData = {}
+		for i = 1, statCount do
+			ivData[i] = 0
+		end
+	else
+		ivData = pokemon[modesorder[mode]]
+	end
 	
 	-- Display stats
 	if gen <= 2 then
@@ -150,7 +148,7 @@ function Display.statsDisplay(pokemon, gen, mode, pokemonSlot, lastpid, table, c
 			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(1), ivText, table["colors"][statCount + 1 - i])
 			
 			-- Nature indicator (not for mode 4/contests)
-			if mode ~= 4 then
+			if pokemon and mode ~= 4 then
 				Display.natureIndicator(colX, 1, i, pokemon, table)
 			end
 		end
