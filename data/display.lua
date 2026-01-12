@@ -259,6 +259,12 @@ function Display.movesList(colX, rowY, pokemon, table)
 	end
 end
 
+local function numTruncate(x,n) -- Truncate to n decimals
+	local o=math.pow(10,n)
+	local y=math.floor(x*o)
+	return y/o
+end
+
 -- Display performance stats (secret feature)
 function Display.performanceStats(monitor)
 	if not monitor.yling then

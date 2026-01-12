@@ -17,12 +17,6 @@ local function bts(bytes,l) -- Bytes array to string
 	return name
 end
 
-local function numTruncate(x,n) -- Truncate to n decimals
-	local o=math.pow(10,n)
-	local y=math.floor(x*o)
-	return y/o
-end
-
 local function hasValue (tab, val)
 	for index, value in ipairs(tab) do
 		if value == val then
