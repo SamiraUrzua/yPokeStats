@@ -40,7 +40,6 @@ function Display.mainRender(pokemon, gen, version, state, lastpid, monitor, key,
 	Display.showHelp(key, state, table)
 	Display.statusIndicator((gen <= 2 and 17 or 0), (gen <= 2 and Display.GRID.MAX_ROWY or 0), state.pokemonSlot[1], state.mode, table, tmpcolor)
 	Display.frameCounter(Display.colToPixelX(0), Display.rowToPixelY(Display.GRID.MAX_ROWY), version)
-	Display.performanceStats(monitor)
 	
 	-- Pokemon data --
 	if pokemon then

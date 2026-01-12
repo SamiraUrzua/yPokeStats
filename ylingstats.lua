@@ -104,6 +104,9 @@ function main() -- Main function - display (check memory.lua for calculations)
 		end
 	end
 	
+	-- Render
+	Display.mainRender(pokemon, gen, version, state, cache.lastpid, monitor, key, table)
+	
 	-- Script performance monitoring
 	clocktime = os.clock() - nClock
 	monitor.clockcount = monitor.clockcount + 1
@@ -112,8 +115,7 @@ function main() -- Main function - display (check memory.lua for calculations)
 	monitor.highestclocktime = clocktime > monitor.highestclocktime and clocktime or monitor.highestclocktime
 	monitor.meanclocktime = monitor.totalclocktime / monitor.clockcount
 	
-	-- Render
-	Display.mainRender(pokemon, gen, version, state, cache.lastpid, monitor, key, table)
+	Display.performanceStats(monitor)
 end
 
 gui.register(main)
