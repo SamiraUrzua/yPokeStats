@@ -1,5 +1,14 @@
--- Functions and variables definition
-function bts(bytes,l) -- Bytes array to string
+-- yPokemonStats Memory Module
+-- Handles all memory reading functions
+
+local mdword=memory.readdwordunsigned 
+local mword=memory.readwordunsigned
+local mbyte=memory.readbyteunsigned
+local mbyterange=memory.readbyterangeunsigned
+local bnd,br,bxr=bit.band,bit.bor,bit.bxor
+local rshift, lshift=bit.rshift, bit.lshift
+
+local function bts(bytes,l) -- Bytes array to string
 	local name = ""
 	for i=1,l do
 		nchar = bytes[i]==0 and "" or string.char(bytes[i])
@@ -8,13 +17,13 @@ function bts(bytes,l) -- Bytes array to string
 	return name
 end
 
-function numTruncate(x,n) -- Truncate to n decimals
+local function numTruncate(x,n) -- Truncate to n decimals
 	local o=math.pow(10,n)
 	local y=math.floor(x*o)
 	return y/o
 end
 
-function hasValue (tab, val)
+local function hasValue (tab, val)
 	for index, value in ipairs(tab) do
 		if value == val then
 			return true
@@ -22,6 +31,23 @@ function hasValue (tab, val)
 	end
 
 	return false
+end
+
+local function getbits(a,b,d) -- Get bits (kinda obvious right ?)
+	return rshift(a,b)%lshift(1,d)
+end
+
+local function gettop(a) -- Rshift for data decryption
+	return(rshift(a,16))
+end
+
+local function mult32(a,b) -- 32 bits multiplication
+	local c = rshift(a,16)
+	local d = a % 0x10000
+	local e = rshift(b,16)
+	local f = b % 0x10000
+	local g = (c*f + d*e) % 0x10000
+	return g*0x10000 + d*f
 end
 
 function getGameInfo() -- Reads game memory to determine which game is running
@@ -92,12 +118,7 @@ function resolveBase(desc)
 end
 
 function isPokemonChanged(pid, checksum, start, gen, selectedPkmnSide, previousHP)
-    local mdword = memory.readdwordunsigned
-    local mword  = memory.readwordunsigned
-    local mbyte  = memory.readbyteunsigned
-    local bnd, bxr = bit.band, bit.bxor
-    local rshift  = bit.rshift
-    
+	local prng
     local currentpid, currentchecksum, currentHP
     if gen <= 2 then
         currentpid = gen == 1 and table["gen1id"][mbyte(start)] or mbyte(start)
@@ -120,16 +141,7 @@ function isPokemonChanged(pid, checksum, start, gen, selectedPkmnSide, previousH
     else
         currentpid = mdword(start)
         currentchecksum = mword(start+6)
-        
-        local function mult32(a,b)
-            local c = rshift(a,16)
-            local d = a % 0x10000
-            local e = rshift(b,16)
-            local f = b % 0x10000
-            local g = (c*f + d*e) % 0x10000
-            return g*0x10000 + d*f
-        end
-        
+
         local prng = currentpid
         for i = 0x88, 0x8E, 2 do
             prng = mult32(prng,0x41C64E6D) + 0x6073
@@ -153,33 +165,7 @@ local function shinyValue(p)
 end
 
 function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from memory and returns a table with all the data
-	local mdword=memory.readdwordunsigned 
-	local mword=memory.readwordunsigned
-	local mbyte=memory.readbyteunsigned
-	local mbyterange=memory.readbyterangeunsigned
-	local bnd,br,bxr=bit.band,bit.bor,bit.bxor
-	local rshift, lshift=bit.rshift, bit.lshift
 	local prng
-	
-	function getbits(a,b,d) -- Get bits (kinda obvious right ?)
-		return rshift(a,b)%lshift(1,d)
-	end
-	
-	function mult32(a,b) -- 32 bits multiplication
-		local c=rshift(a,16)
-		local d=a%0x10000
-		local e=rshift(b,16)
-		local f=b%0x10000
-		local g=(c*f+d*e)%0x10000
-		local h=d*f
-		local i=g*0x10000+h
-		return i
-	end
-
-	function gettop(a) -- Rshift for data decryption
-		return(rshift(a,16))
-	end
-	
 	if gen == 1 then -- -Gen 1 routine
 		local pokemon={}
 			pokemon["hp"] = {}

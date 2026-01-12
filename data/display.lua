@@ -64,7 +64,7 @@ function Display.mainRender(pokemon, gen, version, state, lastpid, monitor, key,
 	if gen <= 2 then
 		gui.text(Display.colToPixelX(Display.getRightAlignedColumn(hpText)), Display.rowToPixelY(1), hpText, pokemon and tmpcolor or "red")
 	else
-		gui.text(Display.colToPixelX(11), Display.rowToPixelY(0), hpText, pokemon and tmpcolor or "red")
+		gui.text(Display.colToPixelX(10), Display.rowToPixelY(0), hpText, pokemon and tmpcolor or "red")
 	end
 
 	-- Toggles if pokemon
