@@ -233,13 +233,9 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 			-- Gen 1 Shiny Calculation (IV Based)
 			if pokemon["iv"][3] == 10 and pokemon["iv"][4] == 10 and pokemon["iv"][5] == 10 then
 				local atk = pokemon["iv"][2]
-				if atk == 2 or atk == 3 or atk == 6 or atk == 7 or atk == 10 or atk == 11 or atk == 14 or atk == 15 then
-					pokemon["shiny"] = 1
-				else
-					pokemon["shiny"] = 0
-				end
+				pokemon["shiny"] = (atk == 2 or atk == 3 or atk == 6 or atk == 7 or atk == 10 or atk == 11 or atk == 14 or atk == 15)
 			else
-				pokemon["shiny"] = 0
+				pokemon["shiny"] = false
 			end
 
 			if version == "POKEMON YELL" and pokemon["species"] == 25 and selectedPkmnSide == pkmnSide.PLAYER then
@@ -271,7 +267,7 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 			pokemon["iv"][5] = getbits(pokemon["ivs"],12,4)
 			pokemon["pp"]={mbyte(start+0x17),mbyte(start+0x18),mbyte(start+0x19),mbyte(start+0x1A)}
 			pokemon["friendship"] = mbyte(start+0x1B)
-			pokemon["pokerus"] = mbyte(0x1C)
+			pokemon["pokerus"] = mbyte(0x1C) ~= 0
 			pokemon["hp"]={}
 			pokemon["hp"]["current"]=0x100*mbyte(start+0x22) + mbyte(start+0x23)
 			pokemon["hp"]["max"]=0x100*mbyte(start+0x24) + mbyte(start+0x25)
@@ -294,7 +290,7 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 			pokemon["hp"]["current"]=0x100*mbyte(start+0x10) + mbyte(start+0x11)
 			pokemon["hp"]["max"]=0x100*mbyte(start+0x12) + mbyte(start+0x13)
 			pokemon["friendship"]=0
-			pokemon["pokerus"]=0
+			pokemon["pokerus"]=false
 			pokemon["stats"]={}
 			pokemon["stats"][1]=pokemon["hp"]["max"]
 			pokemon["stats"][2]=0x100*mbyte(start+0x14) + mbyte(start+0x15)
@@ -311,13 +307,9 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 		-- Gen 2 Shiny Calculation (Same logic as Gen 1 - IV Based)
 		if pokemon["iv"][3] == 10 and pokemon["iv"][4] == 10 and pokemon["iv"][5] == 10 then
 			local atk = pokemon["iv"][2]
-			if atk == 2 or atk == 3 or atk == 6 or atk == 7 or atk == 10 or atk == 11 or atk == 14 or atk == 15 then
-				pokemon["shiny"] = 1
-			else
-				pokemon["shiny"] = 0
-			end
+			pokemon["shiny"] = (atk == 2 or atk == 3 or atk == 6 or atk == 7 or atk == 10 or atk == 11 or atk == 14 or atk == 15)
 		else
-			pokemon["shiny"] = 0
+			pokemon["shiny"] = false
 		end
 
 		return pokemon
@@ -360,18 +352,14 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 			pokemon["hiddenpower"]={}
 			pokemon["hiddenpower"]["type"]=math.floor(((pokemon["iv"][1]%2 + 2*(pokemon["iv"][2]%2) + 4*(pokemon["iv"][3]%2) + 8*(pokemon["iv"][6]%2) + 16*(pokemon["iv"][4]%2) + 32*(pokemon["iv"][5]%2))*15)/63)
 			pokemon["hiddenpower"]["base"]=math.floor((( getbits(pokemon["iv"][1],1,1) + 2*getbits(pokemon["iv"][2],1,1) + 4*getbits(pokemon["iv"][3],1,1) + 8*getbits(pokemon["iv"][6],1,1) + 16*getbits(pokemon["iv"][4],1,1) + 32*getbits(pokemon["iv"][5],1,1))*40)/63 + 30)
-			pokemon["pokerus"]=getbits(pokemon["misc"][1],0,8)
+			pokemon["pokerus"]=(getbits(pokemon["misc"][1],0,8) ~= 0)
 			pokemon["hp"]={}
 			pokemon["hp"]["current"] = mword(start+86)
 			pokemon["hp"]["max"] = mword(start+88)
 			pokemon["stats"]={mword(start+88),mword(start+90),mword(start+92),mword(start+96),mword(start+98),mword(start+94)}
 			
 			-- Gen 3 Shiny Calculation (PID/SID Based)
-			if shinyValue(pokemon) < 8 then
-				pokemon["shiny"] = 1
-			else
-				pokemon["shiny"] = 0
-			end
+			pokemon["shiny"] = (shinyValue(pokemon) < 8)
 
 		return pokemon
 	elseif gen >= 4 then -- Routine for gens 4 and 5
@@ -444,12 +432,7 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 		lastpid = pokemon["pid"]
 		
 		-- Gen 4+ Shiny Calculation (PID/SID Based)
-		if shinyValue(pokemon) < 8 then
-			pokemon["shiny"] = 1
-		else
-			pokemon["shiny"] = 0
-		end
-
+		pokemon["shiny"] = (shinyValue(pokemon) < 8)
 		return pokemon
 	end
 end

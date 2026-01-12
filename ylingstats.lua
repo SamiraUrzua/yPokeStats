@@ -49,10 +49,10 @@ local key = {	SWITCH_MODE					= "J", -- Switch mode (EV,IV,Stats)
 				TOGGLE_MORE					= "M", -- Show more data
 				TOGGLE_HELP					= "H"} -- Toggle help
 
-local state = {selectedPkmnSide = pkmnSide.PLAYER, mode = 3, help = 0, more = 0, pokemonSlot = {1, 1}}
-local cache = {lastpid = 0, lastchecksum = 0, lastPokemonSide = 1}
+local state = {selectedPkmnSide = pkmnSide.PLAYER, mode = 3, help = true, more = false, pokemonSlot = {1, 1}}
+local cache = {lastpid = 0, lastchecksum = 0, lastPokemonSide = pkmnSide.PLAYER}
 local pokemon = nil
-local monitor = {yling = 0, count = 0, clockcount = 0, totalclocktime = 0, lastclocktime = 0, highestclocktime = 0, meanclocktime = 0}
+local monitor = {yling = false, count = 0, clockcount = 0, totalclocktime = 0, lastclocktime = 0, highestclocktime = 0, meanclocktime = 0}
 
 local prev = input.get() -- Preparing the input tables - allows to check if a key has been pressed
 
@@ -134,17 +134,17 @@ function statusChange(input)
 		end
 	end
 	if input[key.TOGGLE_MORE] and not prev[key.TOGGLE_MORE] then 
-		state.help = 0
-		state.more = (state.more == 1) and 0 or 1
+		state.help = false
+		state.more = not state.more
 	end
 	if input[key.TOGGLE_HELP] and not prev[key.TOGGLE_HELP] then
-		state.more = 0
-		state.help = (state.help == 1) and 0 or 1
+		state.more = false
+		state.help = not state.help
 	end
 	if input["Y"] and not prev["Y"] then
-		state.more = 0
-		state.help = 0
-		monitor.yling = (monitor.yling == 1) and 0 or 1
+		state.more = false
+		state.help = false
+		monitor.yling = not monitor.yling
 	end
 	prev = input
 end

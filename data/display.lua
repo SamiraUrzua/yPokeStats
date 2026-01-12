@@ -70,11 +70,11 @@ function Display.mainRender(pokemon, gen, version, state, lastpid, monitor, key,
 	-- Toggles if pokemon
 	if pokemon then
 		-- Shiny status
-		shinyText = pokemon["shiny"] == 1 and "Shiny" or "Not shiny"
-		gui.text(Display.colToPixelX(Display.getRightAlignedColumn(shinyText)), Display.rowToPixelY(Display.GRID.MAX_ROWY), shinyText, pokemon["shiny"] == 1 and "green" or "red")
+		local shinyText = pokemon["shiny"] and "Shiny" or "Not shiny"
+		gui.text(Display.colToPixelX(Display.getRightAlignedColumn(shinyText)), Display.rowToPixelY(Display.GRID.MAX_ROWY), shinyText, pokemon["shiny"] and "green" or "red")
 		
 		-- "More" menu
-		if state.more == 1 then
+		if state.more then
 			local helditem = pokemon["helditem"] == 0 and "none" or table["items"][gen][pokemon["helditem"]]
 			Display.moreMenu(pokemon, gen, version, state, table, helditem, lastpid)
 		end
@@ -85,7 +85,7 @@ end
 
 -- Display help menu
 function Display.showHelp(key, state, table)
-	if state.help ~= 1 then
+	if not state.help then
 		return
 	end
 	gui.box(Display.colToPixelX(2) - 5, Display.rowToPixelY(3) - 5, Display.colToPixelX(Display.GRID.MAX_COLX) - 5, Display.rowToPixelY(12) + 5, "#ffffcc", "#ffcc33")
@@ -214,7 +214,7 @@ function Display.moreMenuGen3Plus(colX, rowY, pokemon, gen, table, helditem)
 	gui.text(Display.colToPixelX(colX + 8), Display.rowToPixelY(rowY), table["nature"][pokemon["nature"]["nature"] + 1], natureColor)
 	
 	local ability = gen == 3 and table["gen3ability"][pokemon["species"]][pokemon["ability"] + 1] or pokemon["ability"]
-	local pokerus = pokemon["pokerus"] == 0 and "no" or "yes"
+	local pokerus = not pokemon["pokerus"] and "no" or "yes"
 	
 	local details = {
 		{"OT ID : " .. pokemon["OTTID"]},
@@ -261,7 +261,7 @@ end
 
 -- Display performance stats (secret feature)
 function Display.performanceStats(monitor)
-	if monitor.yling ~= 1 then
+	if not monitor.yling then
 		return
 	end
 	gui.text(Display.colToPixelX(2), Display.rowToPixelY(6), "Last clock time: " .. numTruncate(monitor.lastclocktime * 1000, 2) .. "ms")
