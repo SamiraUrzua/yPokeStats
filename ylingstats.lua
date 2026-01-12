@@ -78,7 +78,7 @@ function main() -- Main function - display (check memory.lua for calculations)
 	
 	-- Fetch pokemon data if valid memory found
 	if start and (memory.readdwordunsigned(start) ~= 0 or memory.readbyteunsigned(start) ~= 0) then
-        if not pokemon or isPokemonChanged(cache.lastpid, cache.lastchecksum, start, gen, state.selectedPkmnSide, pokemon["hp"]["current"]) or not pokemon["species"] then
+		if not pokemon or isPokemonChanged(cache.lastpid, cache.lastchecksum, start, gen, state.selectedPkmnSide, pokemon["hp"]["current"]) or not pokemon["species"] then
 			local fetched = fetchPokemon(start, gen, state.selectedPkmnSide)
 			monitor.count = monitor.count + 1
 			

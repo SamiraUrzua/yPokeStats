@@ -119,39 +119,39 @@ end
 
 function isPokemonChanged(pid, checksum, start, gen, selectedPkmnSide, previousHP)
 	local prng
-    local currentpid, currentchecksum, currentHP
-    if gen <= 2 then
-        currentpid = gen == 1 and table["gen1id"][mbyte(start)] or mbyte(start)
-        if selectedPkmnSide == pkmnSide.PLAYER then
-            currentchecksum = gen == 1 and mword(start+0x1B) or mword(start+0x15)
-            currentHP = gen == 1
-                and (0x100*mbyte(start+0x01) + mbyte(start+0x02))
-                or  (0x100*mbyte(start+0x22) + mbyte(start+0x23))
-        else
-            currentchecksum = gen == 1 and mword(start+0x0C) or mword(start+0x06)
-            currentHP = gen == 1
-                and (0x100*mbyte(start+0x01) + mbyte(start+0x02))
-                or  (0x100*mbyte(start+0x10) + mbyte(start+0x11))
-        end
+	local currentpid, currentchecksum, currentHP
+	if gen <= 2 then
+		currentpid = gen == 1 and table["gen1id"][mbyte(start)] or mbyte(start)
+		if selectedPkmnSide == pkmnSide.PLAYER then
+			currentchecksum = gen == 1 and mword(start+0x1B) or mword(start+0x15)
+			currentHP = gen == 1
+				and (0x100*mbyte(start+0x01) + mbyte(start+0x02))
+				or  (0x100*mbyte(start+0x22) + mbyte(start+0x23))
+		else
+			currentchecksum = gen == 1 and mword(start+0x0C) or mword(start+0x06)
+			currentHP = gen == 1
+				and (0x100*mbyte(start+0x01) + mbyte(start+0x02))
+				or  (0x100*mbyte(start+0x10) + mbyte(start+0x11))
+		end
 
-    elseif gen == 3 then
-        currentpid = mdword(start)
-        currentchecksum = mdword(start+6)
-        currentHP = mword(start+86)
-    else
-        currentpid = mdword(start)
-        currentchecksum = mword(start+6)
+	elseif gen == 3 then
+		currentpid = mdword(start)
+		currentchecksum = mdword(start+6)
+		currentHP = mword(start+86)
+	else
+		currentpid = mdword(start)
+		currentchecksum = mword(start+6)
 
-        local prng = currentpid
-        for i = 0x88, 0x8E, 2 do
-            prng = mult32(prng,0x41C64E6D) + 0x6073
-            if i == 0x8E then
-                currentHP = bxr(mword(start+i), rshift(prng,16))
-            end
-        end
-    end
+		local prng = currentpid
+		for i = 0x88, 0x8E, 2 do
+			prng = mult32(prng,0x41C64E6D) + 0x6073
+			if i == 0x8E then
+				currentHP = bxr(mword(start+i), rshift(prng,16))
+			end
+		end
+	end
 
-    return pid ~= currentpid or checksum ~= currentchecksum or previousHP ~= currentHP
+	return pid ~= currentpid or checksum ~= currentchecksum or previousHP ~= currentHP
 end
 
 local function shinyValue(p)
