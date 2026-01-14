@@ -186,7 +186,6 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 				pokemon["stats"][4]=0x100*mbyte(start+0x28) + mbyte(start+0x29)
 				pokemon["stats"][5]=0x100*mbyte(start+0x2A) + mbyte(start+0x2B)
 				pokemon["xp"] = 0x10000*mbyte(start+0x0E)+0x100*mbyte(start+0x0F)+mbyte(start+0x10)
-				pokemon["helditem"] = mbyte(start+0x07)
 			else -- Enemy
 				pokemon["hp"]["max"] = 0x100*mbyte(start+0xF) + mbyte(start+0x10)
 				pokemon["TID"] = "0"
@@ -203,7 +202,6 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 				pokemon["stats"][4]=0x100*mbyte(start+0x15) + mbyte(start+0x16)
 				pokemon["stats"][5]=0x100*mbyte(start+0x17) + mbyte(start+0x18)
 				pokemon["xp"] = mbyte(start+0x23)
-				pokemon["helditem"]=mbyte(start+0x23)
 			end
 			pokemon["species"] = table["gen1id"][mbyte(start)]
 			pokemon["speciesname"] = table["pokemon"][pokemon["species"]]

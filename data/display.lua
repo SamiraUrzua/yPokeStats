@@ -74,8 +74,7 @@ function Display.mainRender(pokemon, gen, version, state, lastpid, monitor, key,
 		
 		-- "More" menu
 		if state.more then
-			local helditem = pokemon["helditem"] == 0 and "none" or table["items"][gen][pokemon["helditem"]]
-			Display.moreMenu(pokemon, gen, version, state, table, helditem, lastpid)
+			Display.moreMenu(pokemon, gen, version, state, table)
 		end
 	end
 	
@@ -189,13 +188,13 @@ function Display.frameCounter(x, y, version)
 end
 
 -- Display "More" menu with additional Pokemon details
-function Display.moreMenu(pokemon, gen, version, state, table, helditem, lastpid)
+function Display.moreMenu(pokemon, gen, version, state, table)
 	gui.box(Display.colToPixelX(2) - 5, Display.rowToPixelY(3) - 5, Display.colToPixelX(Display.GRID.MAX_COLX) - 5, Display.rowToPixelY(13) + 5, "#ffffcc", "#ffcc33")
 	
 	if gen >= 3 then
-		Display.moreMenuGen3Plus(2, 3, pokemon, gen, table, helditem)
+		Display.moreMenuGen3Plus(2, 3, pokemon, gen, table)
 	else
-		Display.moreMenuGen12(2, 3, pokemon, gen, version, state, table, helditem)
+		Display.moreMenuGen12(2, 3, pokemon, gen, version, state, table)
 	end
 	
 	-- Hidden Power and Moves (all gens)
@@ -204,7 +203,8 @@ function Display.moreMenu(pokemon, gen, version, state, table, helditem, lastpid
 end
 
 -- More menu details for Gen 3-5
-function Display.moreMenuGen3Plus(colX, rowY, pokemon, gen, table, helditem)
+function Display.moreMenuGen3Plus(colX, rowY, pokemon, gen, table)
+	local helditem = pokemon["helditem"] == 0 and "none" or table["items"][gen][pokemon["helditem"]]
 	local naturen = pokemon["nature"]["nature"] > 16 and pokemon["nature"]["nature"] - 16 or pokemon["nature"]["nature"]
 	local natureColor = table["typecolor"][naturen]
 	
@@ -230,8 +230,13 @@ function Display.moreMenuGen3Plus(colX, rowY, pokemon, gen, table, helditem)
 end
 
 -- More menu details for Gen 1-2
-function Display.moreMenuGen12(colX, rowY, pokemon, gen, version, state, table, helditem)
-	gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY), "TID: " .. pokemon["TID"] .. " / Item: " .. helditem)
+function Display.moreMenuGen12(colX, rowY, pokemon, gen, version, state, table)
+	if gen == 2 then
+		local helditem = pokemon["helditem"] == 0 and "none" or table["items"][gen][pokemon["helditem"]]
+		gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY), "TID: " .. pokemon["TID"] .. " / Item: " .. helditem)
+	else
+		gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY), "TID: " .. pokemon["TID"])
+	end
 	
 	if gen == 2 or (version == "POKEMON YELL" and state.pokemonSlot == 1 and pokemon["species"] == 25) then
 		gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY + 2), "Friendship : " .. pokemon["friendship"])
