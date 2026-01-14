@@ -131,42 +131,41 @@ function Display.statsDisplay(pokemon, gen, mode, pokemonSlot, lastpid, table, c
 			local displayText = ivText .. ":" .. statsLabels[i]
 			
 			local rightCol = Display.getRightAlignedColumn(displayText)
-			gui.text(Display.colToPixelX(rightCol), Display.rowToPixelY(row+2), displayText, table["colors"][i])
+			local xPos = Display.colToPixelX(rightCol)
+			local yPos = Display.rowToPixelY(row+2)
+			gui.text(xPos, yPos, displayText, table["colors"][i])
 		end
 	else
-		-- Gen 3+: Horizontal display
-		for i = 1, statCount do
-			local colX = Display.GRID.COLSX - (i * 3)
+		-- Gen 3+: Horizontal display (looping in reverse order)
+		for i = statCount, 1, -1 do
+			local colX = Display.GRID.COLSX - ((statCount + 1 - i) * 3)
 			
 			-- Label at top
-			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(0), statsLabels[statCount + 1 - i], table["colors"][statCount + 1 - i])
+			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(0), statsLabels[i], table["colors"][i])
 			
 			-- IV value one row below
-			local iv = ivData[statCount + 1 - i]
+			local iv = ivData[i]
 			local ivText = mode == 1 and iv == 31 and (iv .. "*") or iv
-			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(1), ivText, table["colors"][statCount + 1 - i])
+			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(1), ivText, table["colors"][i])
 			
 			-- Nature indicator (not for mode 4/contests)
 			if pokemon and mode ~= 4 then
-				Display.natureIndicator(colX, 1, i, pokemon, table)
+				local inc, dec = pokemon["nature"]["inc"], pokemon["nature"]["dec"]
+				local xPos = Display.colToPixelX(colX)
+				local yPos = Display.rowToPixelY(1) + 2
+				
+				if inc ~= dec then -- If nature changes stats
+					if i == table["statsorder"][inc + 2] then -- If the nature increases current stat
+						gui.text(xPos, yPos, "__", "green") -- Display a green underline
+					elseif i == table["statsorder"][dec + 2] then -- If the nature decreases current stat
+						gui.text(xPos, yPos, "__", "red") -- Display a red underline
+					end
+				else -- If neutral nature
+					if i == table["statsorder"][inc + 2] then
+						gui.text(xPos, yPos, "__", "grey") -- If the nature is neutral on current stat
+					end
+				end
 			end
-		end
-	end
-end
-
--- Display nature stat modifiers (green for boost, red for reduction, grey for neutral)
-function Display.natureIndicator(colX, rowY, statIndex, pokemon, table)
-	local inc, dec = pokemon["nature"]["inc"], pokemon["nature"]["dec"]
-	
-	if inc ~= dec then
-		if statIndex == table["statsorder"][inc + 2] then
-			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY)+2, "__", "green")
-		elseif statIndex == table["statsorder"][dec + 2] then
-			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY)+2, "__", "red")
-		end
-	else
-		if statIndex == table["statsorder"][inc + 1] then
-			gui.text(Display.colToPixelX(colX), Display.rowToPixelY(rowY)+2, "__", "grey")
 		end
 	end
 end
