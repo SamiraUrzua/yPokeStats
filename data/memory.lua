@@ -375,11 +375,6 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 		pokemon["checksum"] = mword(pokemon["addr"]+6)
 		pokemon["shift"] = (rshift((bnd(pokemon["pid"],0x3E000)),0xD)) % 24
 		
-		pokemon["nature"]={}
-		pokemon["nature"]["nature"]=pokemon["pid"]%25
-		pokemon["nature"]["inc"]=math.floor(pokemon["nature"]["nature"]/5)
-		pokemon["nature"]["dec"]=pokemon["nature"]["nature"]%5
-		
 		-- Offsets
 		offset={}
 		offset["A"] = (table["growth"][pokemon["shift"]+1]-1) * 32
@@ -425,6 +420,19 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 		pokemon["pp"]={getbits(decrypted[0x30+offset["B"]],0,8),getbits(decrypted[0x30+offset["B"]],8,8),getbits(decrypted[0x32+offset["B"]],0,8),getbits(decrypted[0x32+offset["B"]],8,8)}
 		pokemon["ivs"]=decrypted[0x38+offset["B"]]  + lshift(decrypted[0x3A+offset["B"]],16)
 		pokemon["iv"]={getbits(pokemon["ivs"],0,5),getbits(pokemon["ivs"],5,5),getbits(pokemon["ivs"],10,5),getbits(pokemon["ivs"],20,5),getbits(pokemon["ivs"],25,5),getbits(pokemon["ivs"],15,5)}
+		
+		-- Nature handling: Gen 5 stores it explicitly at 0x41, Gen 4 derives from PID
+		pokemon["nature"]={}
+		if gen == 5 then
+			-- Gen 5: Nature is stored at offset 0x41 in Block B
+			pokemon["nature"]["nature"] = getbits(decrypted[0x40+offset["B"]],8,8) -- 0x41 is upper byte of 0x40 word
+		else
+			-- Gen 4: Nature derived from PID
+			pokemon["nature"]["nature"] = pokemon["pid"]%25
+		end
+		pokemon["nature"]["inc"]=math.floor(pokemon["nature"]["nature"]/5)
+		pokemon["nature"]["dec"]=pokemon["nature"]["nature"]%5
+		
 		pokemon["stats"]={decrypted[0x90],decrypted[0x92],decrypted[0x94],decrypted[0x98],decrypted[0x9A],decrypted[0x96]}
 		pokemon["pokerusStrainDays"], pokemon["pokerusDays"] = pokerusDays(decrypted[0x82+offset["D"]])
 		pokemon["hp"]={}
