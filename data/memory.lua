@@ -426,7 +426,7 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 		pokemon["ivs"]=decrypted[0x38+offset["B"]]  + lshift(decrypted[0x3A+offset["B"]],16)
 		pokemon["iv"]={getbits(pokemon["ivs"],0,5),getbits(pokemon["ivs"],5,5),getbits(pokemon["ivs"],10,5),getbits(pokemon["ivs"],20,5),getbits(pokemon["ivs"],25,5),getbits(pokemon["ivs"],15,5)}
 		pokemon["stats"]={decrypted[0x90],decrypted[0x92],decrypted[0x94],decrypted[0x98],decrypted[0x9A],decrypted[0x96]}
-		pokemon["pokerusStrainDays"], pokemon["pokerusDays"] = pokerusDays(decrypted[0x82])
+		pokemon["pokerusStrainDays"], pokemon["pokerusDays"] = pokerusDays(decrypted[0x82+offset["D"]])
 		pokemon["hp"]={}
 		pokemon["hp"]["current"]=decrypted[0x8E]
 		pokemon["hp"]["max"]=decrypted[0x90]
