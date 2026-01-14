@@ -412,7 +412,7 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 		pokemon["helditem"] = decrypted[0x0A+offset["A"]]
 		pokemon["OTTID"] = decrypted[0x0C+offset["A"]]
 		pokemon["OTSID"] = decrypted[0x0E+offset["A"]]
-		pokemon["xp"] = decrypted[0x10+offset["A"]]
+		pokemon["xp"] = decrypted[0x10+offset["A"]] + (decrypted[0x12+offset["A"]] * 0x10000)
 		pokemon["friendship"] = getbits(decrypted[0x14+offset["A"]],0,8)
 		pokemon["ability"] = getbits(decrypted[0x14+offset["A"]],8,8)
 		pokemon["markings"] = decrypted[0x16+offset["A"]]
