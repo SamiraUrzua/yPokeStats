@@ -150,12 +150,24 @@ end
 
 local function shinyValue(p)
 	local pid_low  = bit.band(p.pid, 0xFFFF)
-	local pid_high = bit.rshift(p.pid, 16)
+	local pid_high = rshift(p.pid, 16)
 
 	return bit.bxor(
 		bit.bxor(p.OTTID, p.OTSID),
 		bit.bxor(pid_low, pid_high)
 	)
+end
+
+function pokerusDays(pokerusByte)
+    if pokerusByte == 0 then
+        return 0, 0
+    end
+
+    local daysLeft = bit.band(pokerusByte, 0x0F)
+    local strain = rshift(pokerusByte, 4)
+    local strainDays = (strain % 4) + 1
+
+    return strainDays, daysLeft
 end
 
 function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from memory and returns a table with all the data
@@ -259,7 +271,7 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 			pokemon["iv"][5] = getbits(pokemon["ivs"],12,4)
 			pokemon["pp"]={mbyte(start+0x17),mbyte(start+0x18),mbyte(start+0x19),mbyte(start+0x1A)}
 			pokemon["friendship"] = mbyte(start+0x1B)
-			pokemon["pokerus"] = mbyte(0x1C) ~= 0
+			pokemon["pokerusStrainDays"], pokemon["pokerusDays"] = pokerusDays(mbyte(0x1C))
 			pokemon["hp"]={}
 			pokemon["hp"]["current"]=0x100*mbyte(start+0x22) + mbyte(start+0x23)
 			pokemon["hp"]["max"]=0x100*mbyte(start+0x24) + mbyte(start+0x25)
@@ -282,7 +294,7 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 			pokemon["hp"]["current"]=0x100*mbyte(start+0x10) + mbyte(start+0x11)
 			pokemon["hp"]["max"]=0x100*mbyte(start+0x12) + mbyte(start+0x13)
 			pokemon["friendship"]=0
-			pokemon["pokerus"]=false
+			pokemon["pokerusStrainDays"], pokemon["pokerusDays"] = 0, 0
 			pokemon["stats"]={}
 			pokemon["stats"][1]=pokemon["hp"]["max"]
 			pokemon["stats"][2]=0x100*mbyte(start+0x14) + mbyte(start+0x15)
@@ -344,7 +356,7 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 			pokemon["hiddenpower"]={}
 			pokemon["hiddenpower"]["type"]=math.floor(((pokemon["iv"][1]%2 + 2*(pokemon["iv"][2]%2) + 4*(pokemon["iv"][3]%2) + 8*(pokemon["iv"][6]%2) + 16*(pokemon["iv"][4]%2) + 32*(pokemon["iv"][5]%2))*15)/63)
 			pokemon["hiddenpower"]["base"]=math.floor((( getbits(pokemon["iv"][1],1,1) + 2*getbits(pokemon["iv"][2],1,1) + 4*getbits(pokemon["iv"][3],1,1) + 8*getbits(pokemon["iv"][6],1,1) + 16*getbits(pokemon["iv"][4],1,1) + 32*getbits(pokemon["iv"][5],1,1))*40)/63 + 30)
-			pokemon["pokerus"]=(getbits(pokemon["misc"][1],0,8) ~= 0)
+			pokemon["pokerusStrainDays"], pokemon["pokerusDays"] = pokerusDays(getbits(pokemon["misc"][1], 0, 8))
 			pokemon["hp"]={}
 			pokemon["hp"]["current"] = mword(start+86)
 			pokemon["hp"]["max"] = mword(start+88)
@@ -414,7 +426,7 @@ function fetchPokemon(start, gen, selectedPkmnSide) -- Fetches Pokemon info from
 		pokemon["ivs"]=decrypted[0x38+offset["B"]]  + lshift(decrypted[0x3A+offset["B"]],16)
 		pokemon["iv"]={getbits(pokemon["ivs"],0,5),getbits(pokemon["ivs"],5,5),getbits(pokemon["ivs"],10,5),getbits(pokemon["ivs"],20,5),getbits(pokemon["ivs"],25,5),getbits(pokemon["ivs"],15,5)}
 		pokemon["stats"]={decrypted[0x90],decrypted[0x92],decrypted[0x94],decrypted[0x98],decrypted[0x9A],decrypted[0x96]}
-		pokemon["pokerus"]=getbits(decrypted[0x82],0,8)
+		pokemon["pokerusStrainDays"], pokemon["pokerusDays"] = pokerusDays(decrypted[0x82])
 		pokemon["hp"]={}
 		pokemon["hp"]["current"]=decrypted[0x8E]
 		pokemon["hp"]["max"]=decrypted[0x90]

@@ -212,7 +212,13 @@ function Display.moreMenuGen3Plus(colX, rowY, pokemon, gen, table)
 	gui.text(Display.colToPixelX(colX + 8), Display.rowToPixelY(rowY), table["nature"][pokemon["nature"]["nature"] + 1], natureColor)
 	
 	local ability = gen == 3 and table["gen3ability"][pokemon["species"]][pokemon["ability"] + 1] or pokemon["ability"]
-	local pokerus = not pokemon["pokerus"] and "no" or "yes"
+	local pokerusStrainDays = pokemon["pokerusStrainDays"]
+	local pokerusDays      = pokemon["pokerusDays"]
+
+	local pokerus =
+		(pokerusStrainDays ~= 0 and pokerusDays ~= 0) and (pokerusDays .. "/" .. pokerusStrainDays .. " days")
+	 or (pokerusStrainDays ~= 0 and pokerusDays == 0) and ("Cured " .. pokerusStrainDays)
+	 or "Never"
 	
 	local details = {
 		{"OT ID : " .. pokemon["OTTID"]},
